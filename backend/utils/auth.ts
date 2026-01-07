@@ -18,14 +18,14 @@ export interface JWTPayload {
 }
 
 export const generateToken = (payload: JWTPayload): string => {
-  return jwt.sign(payload, JWT_CONFIG.secret, {
-    expiresIn: JWT_CONFIG.expiresIn,
+  return jwt.sign(payload, JWT_CONFIG.secret as jwt.Secret, {
+    expiresIn: JWT_CONFIG.expiresIn as any,
   });
 };
 
 export const generateRefreshToken = (payload: JWTPayload): string => {
-  return jwt.sign(payload, JWT_CONFIG.refreshSecret, {
-    expiresIn: JWT_CONFIG.refreshExpiresIn,
+  return jwt.sign(payload, JWT_CONFIG.refreshSecret as jwt.Secret, {
+    expiresIn: JWT_CONFIG.refreshExpiresIn as any,
   });
 };
 
