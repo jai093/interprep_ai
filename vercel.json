@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build && npm run build:backend",
+  "outputDirectory": "dist",
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/handler.ts"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "dist/index.html",
+      "status": 200
+    }
+  ],
+  "functions": {
+    "api/handler.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  }
+}

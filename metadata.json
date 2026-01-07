@@ -1,0 +1,8 @@
+{
+  "name": "InterPrepAI",
+  "description": "An AI-powered Career & Interview Coach for job seekers and HR teams. It offers resume-based skill mapping, personalized career paths, and real-time interview simulations.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
