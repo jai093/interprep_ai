@@ -8,7 +8,7 @@
     "dev:client": "vite",
     "dev:server": "tsx watch backend/server.ts",
     "build": "vite build",
-    "build:backend": "tsc backend/server.ts --outDir dist/backend",
+    "build:backend": "tsc -p tsconfig.server.json && npx esbuild backend/server.ts --bundle --platform=node --format=esm --outfile=dist/backend/server.js --packages=external",
     "preview": "vite preview",
     "start": "node dist/backend/server.js"
   },
