@@ -73,8 +73,16 @@ class ApiClient {
       const response = await fetch(`${API_URL}/api${endpoint}`, options);
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(error.error || `HTTP ${response.status}`);
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          // If JSON fails, read as text
+          const text = await response.text();
+          errorData = { error: text || `HTTP Error ${response.status}` };
+        }
+
+        throw new Error(errorData.error || errorData.message || `HTTP ${response.status}`);
       }
 
       const data = await response.json();
