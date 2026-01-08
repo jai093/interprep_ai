@@ -79,6 +79,21 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'Server is running' });
 });
 
+// Debug route
+app.get('/api/debug', (req, res) => {
+  res.json({
+    status: 'ok',
+    env: {
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL: process.env.VERCEL,
+      MONGODB_URI_DEFINED: !!process.env.MONGODB_URI,
+      JWT_SECRET_DEFINED: !!process.env.JWT_SECRET,
+    },
+    dbState: mongoose.connection.readyState, // 0: disconnected, 1: connected, 2: connecting, 3: disconnecting
+    timestamp: new Date().toISOString()
+  });
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/candidate', candidateRoutes);
@@ -95,7 +110,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   console.error('Unhandled API Error:', err);
   res.status(err.status || 500).json({
     error: err.message || 'Internal Server Error',
-    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    details: err.stack // ENABLED FOR DEBUGGING
   });
 });
 
