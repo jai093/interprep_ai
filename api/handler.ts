@@ -52,6 +52,12 @@ app.use(cors({
 
 // DB Connection Middleware - runs closer to request handling to ensure CORS headers are set
 app.use(async (req, res, next) => {
+  // Fail fast if URI is missing to prevent timeouts
+  if (process.env.VERCEL && !process.env.MONGODB_URI) {
+    console.error('CRITICAL: MONGODB_URI is missing in Vercel environment');
+    return next(new Error('MONGODB_URI is missing in Vercel Environment Variables'));
+  }
+
   if (mongoose.connection.readyState === 1) {
     return next();
   }
@@ -93,4 +99,6 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-export default app;
+export default function handler(req: VercelRequest, res: VercelResponse) {
+  return app(req, res);
+}
