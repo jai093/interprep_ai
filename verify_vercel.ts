@@ -1,5 +1,5 @@
 import http from 'http';
-import app from './api/handler';
+import { app } from './api/handler';
 
 const PORT = 3001;
 
