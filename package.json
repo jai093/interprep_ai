@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.17.0",
+    "@google/generative-ai": "^0.24.1",
     "@vercel/node": "^3.2.29",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
