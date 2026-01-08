@@ -25,7 +25,6 @@ import LandingPage from './pages/LandingPage';
 import CandidateNotesPage from './pages/CandidateNotesPage';
 import CandidateCoachPage from './pages/CandidateCoachPage';
 import CandidateCommunicationPage from './pages/CandidateCommunicationPage';
-import AssessmentRunnerPage from './pages/AssessmentRunnerPage';
 
 const App: React.FC = () => {
   return (
@@ -89,7 +88,6 @@ const RouterComponent: React.FC = () => {
           <Route path="/candidate/communication" element={<CandidateCommunicationPage />} />
           <Route path="/candidate/notes" element={<CandidateNotesPage />} />
           <Route path="/candidate/profile" element={<CandidateProfilePage />} />
-          <Route path="/candidate/assessment-engine/:assessmentId" element={<AssessmentRunnerPage />} />
         </Route>
 
         <Route element={<PrivateRoute role="recruiter" />}>

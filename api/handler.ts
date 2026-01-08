@@ -39,13 +39,7 @@ app.use(cors({
     if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-
-    // Allow any Vercel deployment subdomain
-    if (origin.endsWith('.vercel.app')) {
-      return callback(null, true);
-    }
-
-    return callback(new Error(`Not allowed by CORS: ${origin}`));
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
 }));
@@ -71,17 +65,6 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Health check
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'Server is running' });
-});
-
-// Debug Endpoint (Temporary)
-app.get('/api/debug-status', (req, res) => {
-  res.json({
-    nodeEnv: process.env.NODE_ENV,
-    mongoUriSet: !!process.env.MONGODB_URI,
-    mongoUriPreview: process.env.MONGODB_URI ? `${process.env.MONGODB_URI.substring(0, 15)}...` : 'N/A',
-    dbState: mongoose.connection.readyState,
-    dbStateName: ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown'
-  });
 });
 
 // API Routes

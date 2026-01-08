@@ -1,56 +1,42 @@
-import handler from './api/handler';
-import { EventEmitter } from 'events';
+import http from 'http';
+import app from './api/handler';
 
-// Mock Response to behave like a standard ServerResponse
-class MockResponse extends EventEmitter {
-    statusCode = 200;
-    headersSent = false;
+const PORT = 3001;
 
-    status(code: number) {
-        this.statusCode = code;
-        console.log(`Response Status: ${code}`);
-        return this;
-    }
+const server = http.createServer(app);
 
-    json(data: any) {
-        console.log('Response Data:', JSON.stringify(data, null, 2));
-        return this;
-    }
+server.listen(PORT, async () => {
+    console.log(`Test server running on port ${PORT}`);
 
-    setHeader(key: string, value: string) {
-        // console.log(`Set Header: ${key}=${value}`);
-    }
-
-    getHeader(key: string) { return null; }
-    removeHeader(key: string) { }
-    write(chunk: any) { }
-    end() { console.log('Response ended'); }
-}
-
-const req: any = {
-    method: 'POST',
-    url: '/api/auth/login',
-    headers: {
-        'content-type': 'application/json',
-        'origin': 'http://localhost:3000'
-    },
-    body: {
-        email: 'test@example.com',
-        password: 'password123'
-    },
-    query: {},
-    cookies: {}
-};
-
-const res: any = new MockResponse();
-
-async function testHandler() {
     try {
-        console.log('Starting Vercel Handler Simulation...');
-        await handler(req, res);
-    } catch (error) {
-        console.error('CRITICAL ERROR CAUGHT:', error);
-    }
-}
+        console.log('Sending test request to /api/health...');
+        const healthRes = await fetch(`http://localhost:${PORT}/api/health`);
+        console.log(`Health Status: ${healthRes.status}`);
+        console.log('Health Body:', await healthRes.json());
 
-testHandler();
+        console.log('\nSending test request to /api/auth/login (expecting 401/400)...');
+        // This should trigger the chain including helmet, cors, etc.
+        const loginRes = await fetch(`http://localhost:${PORT}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'test@example.com', password: 'wrongpassword' })
+        });
+
+        console.log(`Login Status: ${loginRes.status}`);
+        const loginData = await loginRes.json();
+        console.log('Login Body:', loginData);
+
+        if (loginRes.status === 401 || loginRes.status === 200 || loginRes.status === 400) {
+            console.log('\nSUCCESS: Request handled without crashing.');
+        } else {
+            console.log('\nWARNING: Unexpected status code.');
+        }
+
+    } catch (error) {
+        console.error('Test FAILED:', error);
+    } finally {
+        server.close(() => {
+            console.log('Test server closed.');
+        });
+    }
+});

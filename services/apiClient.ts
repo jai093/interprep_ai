@@ -91,19 +91,7 @@ class ApiClient {
       throw error;
     }
   }
-  async startAssessment(assessmentId: string) {
-    return this.request('/assessments/engine/start', 'POST', { assessmentId });
-  }
-
-  async submitAnswer(sessionId: string, answer: string) {
-    return this.request('/assessments/engine/submit', 'POST', { sessionId, answer });
-  }
-
-  async getSession(sessionId: string) {
-    return this.request(`/assessments/engine/session/${sessionId}`, 'GET');
-  }
 }
-
 
 const apiClient = new ApiClient();
 export default apiClient;
