@@ -73,6 +73,17 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'Server is running' });
 });
 
+// Debug Endpoint (Temporary)
+app.get('/api/debug-status', (req, res) => {
+  res.json({
+    nodeEnv: process.env.NODE_ENV,
+    mongoUriSet: !!process.env.MONGODB_URI,
+    mongoUriPreview: process.env.MONGODB_URI ? `${process.env.MONGODB_URI.substring(0, 15)}...` : 'N/A',
+    dbState: mongoose.connection.readyState,
+    dbStateName: ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown'
+  });
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/candidate', candidateRoutes);
