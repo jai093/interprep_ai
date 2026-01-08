@@ -39,7 +39,13 @@ app.use(cors({
     if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(new Error('Not allowed by CORS'));
+
+    // Allow any Vercel deployment subdomain
+    if (origin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,
 }));
