@@ -1,6 +1,14 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const getGenAI = () => {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+        // Log warning but don't crash unless used
+        console.warn('GEMINI_API_KEY is not set');
+        return new GoogleGenerativeAI('dummy_key');
+    }
+    return new GoogleGenerativeAI(key);
+};
 
 interface AssessmentContext {
     jobRole: string;
@@ -29,7 +37,7 @@ export interface ReportResult {
 }
 
 export const generateNextQuestion = async (context: AssessmentContext): Promise<string> => {
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = getGenAI().getGenerativeModel({ model: 'gemini-pro' });
 
     const historyText = context.transcript
         .map((t) => `${t.sender === 'ai' ? 'Interviewer' : 'Candidate'}: ${t.content}`)
@@ -64,7 +72,7 @@ export const evaluateResponse = async (
     answer: string,
     jobRole: string
 ): Promise<EvaluationResult> => {
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = getGenAI().getGenerativeModel({ model: 'gemini-pro' });
 
     const prompt = `
     Role: ${jobRole}
@@ -108,7 +116,7 @@ export const generateReport = async (
     transcript: { sender: string; content: string }[],
     evaluations: EvaluationResult[]
 ): Promise<ReportResult> => {
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = getGenAI().getGenerativeModel({ model: 'gemini-pro' });
 
     const transcriptText = transcript
         .map((t) => `${t.sender === 'ai' ? 'Interviewer' : 'Candidate'}: ${t.content}`)
