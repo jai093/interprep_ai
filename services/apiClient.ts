@@ -73,12 +73,11 @@ class ApiClient {
       const response = await fetch(`${API_URL}/api${endpoint}`, options);
 
       if (!response.ok) {
+        const text = await response.text();
         let errorData;
         try {
-          errorData = await response.json();
+          errorData = JSON.parse(text);
         } catch (e) {
-          // If JSON fails, read as text
-          const text = await response.text();
           errorData = { error: text || `HTTP Error ${response.status}` };
         }
 
