@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import { connectDB } from '../backend/config/db';
 import { SERVER_CONFIG } from '../backend/config/constants';
 
@@ -21,18 +22,41 @@ const app = express();
 app.use(helmet());
 
 // Configure CORS
-const rawOrigins = String(process.env.CORS_ORIGIN || 'https://interprepai-olive.vercel.app');
-const allowedOrigins = rawOrigins.split(',').map((s) => s.trim()).filter(Boolean);
-
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes('*')) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+
+    const allowedOrigins = [
+      process.env.CORS_ORIGIN,
+      'https://interprepai-olive.vercel.app',
+      'https://interprepai-five.vercel.app', // Explicitly add user's domain
+      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+      'http://localhost:3000',
+      'http://localhost:5173'
+    ].filter(Boolean).map(s => String(s).split(',')).flat().map(s => s.trim());
+
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
 }));
+
+// DB Connection Middleware - runs closer to request handling to ensure CORS headers are set
+app.use(async (req, res, next) => {
+  if (mongoose.connection.readyState === 1) {
+    return next();
+  }
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error('Database Connection Error:', error);
+    next(error);
+  }
+});
 
 app.use(morgan('combined'));
 app.use(express.json({ limit: '50mb' }));
@@ -54,21 +78,13 @@ app.use('/api*', (req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Ensure DB is connected once
-let dbConnected = false;
+// Global Error Handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Unhandled API Error:', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error',
+    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
+});
 
-export default async (req: VercelRequest, res: VercelResponse) => {
-  // Connect to DB on first request
-  if (!dbConnected) {
-    try {
-      await connectDB();
-      dbConnected = true;
-      console.log('✓ Connected to MongoDB');
-    } catch (error) {
-      console.error('✗ Failed to connect to MongoDB:', error);
-      return res.status(500).json({ error: 'Database connection failed' });
-    }
-  }
-
-  return app(req, res);
-};
+export default app;
