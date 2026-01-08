@@ -8,6 +8,11 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/interp
 
 export const connectDB = async (): Promise<void> => {
   try {
+    // Check if we are in production (Vercel) but using localhost URI
+    if (process.env.NODE_ENV === 'production' && MONGODB_URI.includes('localhost')) {
+      throw new Error('MONGODB_URI is not set or points to localhost in production mode. Please check your Vercel Environment Variables.');
+    }
+
     await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
     });

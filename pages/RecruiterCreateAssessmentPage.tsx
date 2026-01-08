@@ -1,16 +1,17 @@
 
 
+
 import React, { useState } from 'react';
 // FIX: Use named import for react-router-dom v6.
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { ClipboardList, AlertTriangle, Sparkles } from 'lucide-react';
-import type { InterviewConfig } from '../types';
+import { ClipboardList, AlertTriangle, Sparkles, CheckCircle, Send, Copy, ArrowRight } from 'lucide-react';
+import type { InterviewConfig, Assessment } from '../types';
 import { generateAssessmentQuestions } from '../services/geminiService';
 import Spinner from '../components/Spinner';
 
 const RecruiterCreateAssessmentPage: React.FC = () => {
-    const { createAssessment } = useAppContext();
+    const { createAssessment, user } = useAppContext();
     const navigate = useNavigate();
 
     const [jobRole, setJobRole] = useState('');
@@ -20,7 +21,11 @@ const RecruiterCreateAssessmentPage: React.FC = () => {
     const [error, setError] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    // Success Invite Flow State
+    const [createdAssessment, setCreatedAssessment] = useState<Assessment | null>(null);
+    const [linkCopied, setLinkCopied] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
@@ -36,7 +41,7 @@ const RecruiterCreateAssessmentPage: React.FC = () => {
         }
 
         try {
-            createAssessment({
+            const newAssessment = await createAssessment({
                 jobRole,
                 config: {
                     type: interviewType,
@@ -45,7 +50,7 @@ const RecruiterCreateAssessmentPage: React.FC = () => {
                 },
                 questions: questionList
             });
-            navigate('/recruiter/dashboard');
+            setCreatedAssessment(newAssessment);
         } catch (err: any) {
             setError(err.message || 'An error occurred.');
         }
@@ -69,6 +74,75 @@ const RecruiterCreateAssessmentPage: React.FC = () => {
         }
     };
 
+    const generateAssessmentLink = (assessmentId: string): string => {
+        const cleanOrigin = window.location.origin.replace(/^blob:/, '');
+        return `${cleanOrigin}/#/assessment/${assessmentId}`;
+    };
+
+    const handleCopyLink = () => {
+        if (!createdAssessment) return;
+        const link = generateAssessmentLink(createdAssessment.id);
+        navigator.clipboard.writeText(link);
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 2000);
+    };
+
+    const handleSendInvite = () => {
+        if (!createdAssessment) return;
+        const link = generateAssessmentLink(createdAssessment.id);
+        const subject = `Invitation to Interview Assessment for ${createdAssessment.jobRole}`;
+        const body = `Hello,\n\nPlease complete the AI-powered interview assessment for the ${createdAssessment.jobRole} position by clicking the link below:\n\n${link}\n\nBest regards,\n${user?.name || 'The Hiring Team'}`;
+        window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    };
+
+    if (createdAssessment) {
+        return (
+            <div className="max-w-2xl mx-auto mt-10">
+                <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 text-center">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <CheckCircle size={32} className="text-green-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Assessment Created Successfully!</h2>
+                    <p className="text-slate-600 mb-8">
+                        Your assessment for <span className="font-semibold text-indigo-700">{createdAssessment.jobRole}</span> is ready.
+                        Invite candidates now to start the process.
+                    </p>
+
+                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-8 max-w-lg mx-auto">
+                        <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-2">Assessment Link</p>
+                        <div className="flex items-center gap-2">
+                            <code className="flex-1 bg-white p-2 rounded border border-slate-300 text-sm text-slate-600 truncate text-left">
+                                {generateAssessmentLink(createdAssessment.id)}
+                            </code>
+                            <button
+                                onClick={handleCopyLink}
+                                className="p-2 bg-white border border-slate-300 rounded hover:bg-slate-50 transition text-slate-600"
+                                title="Copy Link"
+                            >
+                                {linkCopied ? <CheckCircle size={18} className="text-green-600" /> : <Copy size={18} />}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button
+                            onClick={handleSendInvite}
+                            className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition flex items-center justify-center shadow-md"
+                        >
+                            <Send size={18} className="mr-2" />
+                            Send Email Invite
+                        </button>
+                        <button
+                            onClick={() => navigate('/recruiter/dashboard')}
+                            className="px-6 py-3 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-50 transition flex items-center justify-center"
+                        >
+                            Go to Dashboard <ArrowRight size={18} className="ml-2" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-3xl mx-auto">
@@ -89,7 +163,7 @@ const RecruiterCreateAssessmentPage: React.FC = () => {
                         required
                     />
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label htmlFor="interviewType" className="block text-sm font-medium text-slate-700 mb-1">Interview Type</label>
@@ -122,7 +196,7 @@ const RecruiterCreateAssessmentPage: React.FC = () => {
                 <div>
                     <div className="flex justify-between items-center mb-1">
                         <label htmlFor="questions" className="block text-sm font-medium text-slate-700">Interview Questions</label>
-                         <button
+                        <button
                             type="button"
                             onClick={handleGenerateQuestions}
                             disabled={isGenerating || !jobRole.trim()}
@@ -158,9 +232,9 @@ const RecruiterCreateAssessmentPage: React.FC = () => {
                         {error}
                     </div>
                 )}
-                
+
                 <div className="flex justify-end pt-4 border-t border-slate-200">
-                     <button
+                    <button
                         type="submit"
                         className="px-6 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition flex items-center shadow-sm"
                     >
@@ -173,5 +247,6 @@ const RecruiterCreateAssessmentPage: React.FC = () => {
         </div>
     );
 };
+
 
 export default RecruiterCreateAssessmentPage;

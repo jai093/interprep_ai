@@ -34,7 +34,7 @@ interface AppContextType {
   updateUserProfile: (profile: UserProfile) => void;
   updateRecruiterProfile: (profile: RecruiterProfile) => void;
   updateRecruiterSettings: (settings: RecruiterSettings) => void;
-  createAssessment: (assessmentData: Omit<Assessment, 'id' | 'createdAt' | 'createdBy'>) => void;
+  createAssessment: (assessmentData: Omit<Assessment, 'id' | 'createdAt' | 'createdBy'>) => Promise<Assessment>;
   addAssessmentResult: (resultData: Omit<AssessmentResult, 'id' | 'completedAt'>) => void;
   deleteAssessment: (assessmentId: string) => void;
 }
@@ -44,21 +44,21 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 // --- LocalStorage Persistence Layer (Fallback) ---
 
 const loadFromStorage = <T,>(key: string, defaultValue: T): T => {
-    try {
-        const item = window.localStorage.getItem(key);
-        return item ? JSON.parse(item) : defaultValue;
-    } catch (error) {
-        console.error(`Error reading from localStorage key "${key}":`, error);
-        return defaultValue;
-    }
+  try {
+    const item = window.localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (error) {
+    console.error(`Error reading from localStorage key "${key}":`, error);
+    return defaultValue;
+  }
 };
 
 const saveToStorage = (key: string, value: any) => {
-    try {
-        window.localStorage.setItem(key, JSON.stringify(value));
-    } catch (error) {
-        console.error(`Error writing to localStorage key "${key}":`, error);
-    }
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error(`Error writing to localStorage key "${key}":`, error);
+  }
 };
 
 const mapToJson = (map: Map<any, any>) => Array.from(map.entries());
@@ -73,22 +73,22 @@ let recruiterDataDB = jsonToMap(loadFromStorage('recruiterDataDB', []));
 
 // Save initial state to localStorage if it wasn't there
 if (!window.localStorage.getItem('usersDB')) {
-    saveToStorage('usersDB', usersDB);
-    saveToStorage('assessmentsDB', assessmentsDB);
-    saveToStorage('assessmentResultsDB', assessmentResultsDB);
-    saveToStorage('candidateDataDB', mapToJson(candidateDataDB));
-    saveToStorage('recruiterDataDB', mapToJson(recruiterDataDB));
+  saveToStorage('usersDB', usersDB);
+  saveToStorage('assessmentsDB', assessmentsDB);
+  saveToStorage('assessmentResultsDB', assessmentResultsDB);
+  saveToStorage('candidateDataDB', mapToJson(candidateDataDB));
+  saveToStorage('recruiterDataDB', mapToJson(recruiterDataDB));
 }
 
 // --- AppProvider Component ---
 
 const defaultRecruiterSettings: RecruiterSettings = {
-    emailNotifications: true,
-    assessmentReminders: true,
-    weeklyReports: false,
-    autoReject: false,
-    passingScore: 70,
-    timeLimit: 60,
+  emailNotifications: true,
+  assessmentReminders: true,
+  weeklyReports: false,
+  autoReject: false,
+  passingScore: 70,
+  timeLimit: 60,
 };
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -143,7 +143,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setError(null);
   };
 
-  const signup = async (userData: Omit<User, 'role' | 'password'> & {password: string, company?: string}, role: 'candidate' | 'recruiter') => {
+  const signup = async (userData: Omit<User, 'role' | 'password'> & { password: string, company?: string }, role: 'candidate' | 'recruiter') => {
     setLoading(true);
     setError(null);
     try {
@@ -152,7 +152,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setUser(userWithRole);
       localStorage.setItem('accessToken', response.accessToken);
       localStorage.setItem('refreshToken', response.refreshToken);
-      
+
       // Load user profile data from backend
       if (role === 'candidate') {
         try {
@@ -189,7 +189,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setUser(userWithRole);
       localStorage.setItem('accessToken', response.accessToken);
       localStorage.setItem('refreshToken', response.refreshToken);
-      
+
       // Load user profile data from backend
       setAssessments(assessmentsDB);
       setAssessmentResults(assessmentResultsDB);
@@ -199,7 +199,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const profile = await candidateService.getProfile();
           const roadmap = await candidateService.getCareerRoadmap().catch(() => null);
           const interviews = await candidateService.getInterviewHistory().catch(() => []);
-          
+
           setUserProfile(profile);
           if (roadmap) setCareerRoadmap(roadmap);
           setInterviewHistory(interviews);
@@ -207,9 +207,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           console.error('Failed to load candidate data:', err);
           // Fallback to localStorage if backend fails
           const data = candidateDataDB.get(credentials.email) || {
-            resumeData: null, careerRoadmap: null, interviewHistory: [], 
-            userProfile: { 
-              fullName: userWithRole.name, email: userWithRole.email, linkedinUrl: '', skills: [], languages: [], 
+            resumeData: null, careerRoadmap: null, interviewHistory: [],
+            userProfile: {
+              fullName: userWithRole.name, email: userWithRole.email, linkedinUrl: '', skills: [], languages: [],
               profilePhotoUrl: `https://api.dicebear.com/8.x/initials/svg?seed=${userWithRole.name}`, resumeText: ''
             }
           };
@@ -223,7 +223,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const profile = await recruiterService.getProfile();
           const settings = await recruiterService.getSettings();
           const assessmentsList = await recruiterService.getAssessments();
-          
+
           setRecruiterProfile(profile);
           setRecruiterSettings(settings);
           setAssessments(assessmentsList);
@@ -275,7 +275,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setLoading(false);
     }
   };
-  
+
   const addInterviewSession = async (session: InterviewSession) => {
     if (!user || user.role !== 'candidate') return;
     setLoading(true);
@@ -320,7 +320,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setLoading(false);
     }
   };
-  
+
   const updateRecruiterProfile = async (profile: RecruiterProfile) => {
     if (!user || user.role !== 'recruiter') return;
     setLoading(true);
@@ -340,7 +340,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setLoading(false);
     }
   };
-  
+
   const updateRecruiterSettings = async (settings: RecruiterSettings) => {
     if (!user || user.role !== 'recruiter') return;
     setLoading(true);
@@ -364,11 +364,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateResumeData = (data: ResumeData | null) => {
     setResumeData(data);
     if (user) {
-        const currentUserData = candidateDataDB.get(user.email);
-        if (currentUserData) {
-            candidateDataDB.set(user.email, { ...currentUserData, resumeData: data });
-            saveToStorage('candidateDataDB', mapToJson(candidateDataDB));
-        }
+      const currentUserData = candidateDataDB.get(user.email);
+      if (currentUserData) {
+        candidateDataDB.set(user.email, { ...currentUserData, resumeData: data });
+        saveToStorage('candidateDataDB', mapToJson(candidateDataDB));
+      }
     }
   };
 
@@ -394,7 +394,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const createAssessment = async (assessmentData: Omit<Assessment, 'id' | 'createdAt' | 'createdBy'>) => {
+  const createAssessment = async (assessmentData: Omit<Assessment, 'id' | 'createdAt' | 'createdBy'>): Promise<Assessment> => {
     if (!user || user.role !== 'recruiter') throw new Error("Only recruiters can create assessments.");
     setLoading(true);
     try {
@@ -403,6 +403,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       assessmentsDB = updatedAssessments;
       saveToStorage('assessmentsDB', assessmentsDB);
       setAssessments(updatedAssessments);
+      return response.assessment;
     } catch (err) {
       console.error('Failed to create assessment:', err);
       // Fallback to local state
@@ -416,11 +417,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       assessmentsDB = updatedAssessments;
       saveToStorage('assessmentsDB', assessmentsDB);
       setAssessments(updatedAssessments);
+      return newAssessment;
     } finally {
       setLoading(false);
     }
   };
-  
+
   const addAssessmentResult = async (resultData: Omit<AssessmentResult, 'id' | 'completedAt'>) => {
     setLoading(true);
     try {
@@ -448,7 +450,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       saveToStorage('assessmentsDB', assessmentsDB);
       assessmentResultsDB = assessmentResultsDB.filter(r => r.assessmentId !== assessmentId);
       saveToStorage('assessmentResultsDB', assessmentResultsDB);
-      
+
       setAssessments(prev => prev.filter(a => a.id !== assessmentId));
       setAssessmentResults(prev => prev.filter(r => r.assessmentId !== assessmentId));
     } catch (err) {
@@ -458,7 +460,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       saveToStorage('assessmentsDB', assessmentsDB);
       assessmentResultsDB = assessmentResultsDB.filter(r => r.assessmentId !== assessmentId);
       saveToStorage('assessmentResultsDB', assessmentResultsDB);
-      
+
       setAssessments(prev => prev.filter(a => a.id !== assessmentId));
       setAssessmentResults(prev => prev.filter(r => r.assessmentId !== assessmentId));
     } finally {
