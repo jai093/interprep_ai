@@ -8,10 +8,10 @@ const jwtSecret = process.env.JWT_SECRET;
 const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
 
 if (!jwtSecret || jwtSecret === 'change-this-to-a-random-64-char-hex-string') {
-  throw new Error('FATAL: JWT_SECRET is not configured. Set a secure value in .env.local');
+  console.warn('⚠ WARNING: JWT_SECRET is not configured. Authentication features will fail. Set a secure value in environment variables.');
 }
 if (!jwtRefreshSecret || jwtRefreshSecret === 'change-this-to-a-different-random-64-char-hex-string') {
-  throw new Error('FATAL: JWT_REFRESH_SECRET is not configured. Set a secure value in .env.local');
+  console.warn('⚠ WARNING: JWT_REFRESH_SECRET is not configured. Refresh tokens will fail. Set a secure value in environment variables.');
 }
 
 export const JWT_CONFIG = {
