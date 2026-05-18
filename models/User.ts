@@ -1,4 +1,5 @@
 import { Schema, model, models, Document } from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 export interface IUser extends Document {
   name: string;
@@ -34,7 +35,18 @@ const UserSchema = new Schema<IUser>({
   timestamps: true, // Adds createdAt and updatedAt fields
 });
 
-// TODO: Add pre-save hook for password hashing before integrating backend logic
-// UserSchema.pre<IUser>('save', async function (next) { ... });
+// Pre-save hook to hash password automatically before saving
+UserSchema.pre<IUser>('save', async function (next) {
+  if (!this.isModified('password')) {
+    return next();
+  }
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password || '', salt);
+    next();
+  } catch (err: any) {
+    next(err);
+  }
+});
 
 export default models.User || model<IUser>('User', UserSchema);
