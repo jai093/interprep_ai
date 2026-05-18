@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, models, Document, Types } from 'mongoose';
 import { EmbeddedInterviewSessionSchema } from './types';
 import { InterviewSession } from '../types';
 
@@ -37,4 +37,4 @@ const AssessmentResultSchema = new Schema<IAssessmentResult>({
   timestamps: true,
 });
 
-export default model<IAssessmentResult>('AssessmentResult', AssessmentResultSchema);
+export default models.AssessmentResult || model<IAssessmentResult>('AssessmentResult', AssessmentResultSchema);

@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, models, Document } from 'mongoose';
 
 export interface IUser extends Document {
   name: string;
@@ -37,4 +37,4 @@ const UserSchema = new Schema<IUser>({
 // TODO: Add pre-save hook for password hashing before integrating backend logic
 // UserSchema.pre<IUser>('save', async function (next) { ... });
 
-export default model<IUser>('User', UserSchema);
+export default models.User || model<IUser>('User', UserSchema);

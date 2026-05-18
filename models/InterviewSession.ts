@@ -1,9 +1,9 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, models, Document, Types } from 'mongoose';
 import { InterviewConfigSchema, TranscriptEntrySchema, InterviewSummarySchema } from './types';
 import { InterviewConfig, TranscriptEntry, InterviewSummary } from '../types';
 
 export interface IInterviewSession extends Document {
-  user: Types.ObjectId; // The candidate who took the practice interview
+  user: Types.ObjectId; // The candidate who took the practice practice interview
   date: Date;
   type: string;
   duration: number;
@@ -51,4 +51,4 @@ const InterviewSessionSchema = new Schema<IInterviewSession>({
   timestamps: true,
 });
 
-export default model<IInterviewSession>('InterviewSession', InterviewSessionSchema);
+export default models.InterviewSession || model<IInterviewSession>('InterviewSession', InterviewSessionSchema);

@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, models, Document, Types } from 'mongoose';
 import { RoadmapStepSchema } from './types';
 import { RoadmapStep } from '../types';
 
@@ -30,4 +30,4 @@ const CareerRoadmapSchema = new Schema<ICareerRoadmap>({
   timestamps: true,
 });
 
-export default model<ICareerRoadmap>('CareerRoadmap', CareerRoadmapSchema);
+export default models.CareerRoadmap || model<ICareerRoadmap>('CareerRoadmap', CareerRoadmapSchema);

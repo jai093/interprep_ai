@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, models, Document, Types } from 'mongoose';
 
 export interface IRecruiterSettings extends Document {
   user: Types.ObjectId;
@@ -25,4 +25,4 @@ const RecruiterSettingsSchema = new Schema<IRecruiterSettings>({
   timeLimit: { type: Number, default: 60 },
 });
 
-export default model<IRecruiterSettings>('RecruiterSettings', RecruiterSettingsSchema);
+export default models.RecruiterSettings || model<IRecruiterSettings>('RecruiterSettings', RecruiterSettingsSchema);

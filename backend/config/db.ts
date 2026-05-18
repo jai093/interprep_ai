@@ -4,8 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 dotenv.config();
 
-// Cache the active connection promise to prevent duplicate concurrent connection attempts in serverless environments
-let cachedDbPromise: Promise<typeof mongoose> | null = null;
+let cachedConnection: any = null;
 
 export const connectDB = async (): Promise<typeof mongoose> => {
   // If already connected, return immediately
@@ -13,9 +12,9 @@ export const connectDB = async (): Promise<typeof mongoose> => {
     return mongoose;
   }
 
-  // If currently connecting, return the existing active connection promise
-  if (mongoose.connection.readyState === 2 && cachedDbPromise) {
-    return cachedDbPromise;
+  // If currently connecting, return the existing connection promise
+  if (cachedConnection) {
+    return cachedConnection;
   }
 
   const uri = process.env.MONGODB_URI || (process.env.VERCEL ? '' : 'mongodb://localhost:27017/interprepai');
@@ -29,21 +28,17 @@ export const connectDB = async (): Promise<typeof mongoose> => {
       throw new Error('MONGODB_URI points to localhost in production/Vercel. Please set a valid Cloud MongoDB URI.');
     }
 
-    // Cache the promise so concurrent calls await the exact same promise
-    cachedDbPromise = mongoose.connect(uri, {
+    // Cache the connection promise so concurrent requests await the exact same operation
+    cachedConnection = mongoose.connect(uri, {
       serverSelectionTimeoutMS: 5000,
-    }).then((m) => {
-      console.log('✓ MongoDB connected successfully');
-      return m;
-    }).catch((err) => {
-      cachedDbPromise = null; // Clear the cache on failure so retry can happen
-      console.error('✗ MongoDB connection failed:', err);
-      throw err;
     });
 
-    return cachedDbPromise;
+    await cachedConnection;
+    console.log('✓ MongoDB connected successfully');
+    return mongoose;
   } catch (error) {
-    console.error('✗ MongoDB connection pre-flight check failed:', error);
+    cachedConnection = null; // Reset cache on failure so a future request can retry
+    console.error('✗ MongoDB connection failed:', error);
     throw error;
   }
 };
