@@ -4,8 +4,8 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/handler"
+      "source": "/api/:path*",
+      "destination": "/api/handler?path=:path*"
     },
     {
       "source": "/(.*)",

@@ -75,7 +75,16 @@ export const InterviewSummarySchema = new Schema({
     encouragement: { type: String },
     simulatedFacialExpressionAnalysis: { type: String },
     simulatedBodyLanguageAnalysis: { type: String },
-    simulatedAudioAnalysis: { type: String }
+    simulatedAudioAnalysis: { type: String },
+    // New Report Fields
+    metrics: {
+        strengths: [{ type: String }],
+        weaknesses: [{ type: String }],
+        communicationScore: { type: Number }
+    },
+    candidateReport: { type: String },
+    recruiterReport: { type: String },
+    badgesEarned: [{ type: String }]
 }, { _id: false });
 
 // This schema is for embedding a full session inside another document (like AssessmentResult)

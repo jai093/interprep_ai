@@ -4,7 +4,7 @@ import React from 'react';
 // FIX: Use named import for NavLink from react-router-dom.
 import { NavLink } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { LayoutDashboard, Milestone, BotMessageSquare, Users, UserCircle, Settings, ClipboardList, BookText, Sparkles, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, Milestone, BotMessageSquare, Users, UserCircle, Settings, ClipboardList, GraduationCap } from 'lucide-react';
 import type { UserRole } from '../types';
 
 interface NavItem {
@@ -18,9 +18,7 @@ const navItems: NavItem[] = [
   { path: '/candidate/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} />, role: 'candidate' },
   { path: '/candidate/roadmap', name: 'Roadmap', icon: <Milestone size={20} />, role: 'candidate' },
   { path: '/candidate/interview', name: 'Interview', icon: <BotMessageSquare size={20} />, role: 'candidate' },
-  { path: '/candidate/coach', name: 'AI Coach', icon: <Sparkles size={20} />, role: 'candidate' },
   { path: '/candidate/communication', name: 'Skills Training', icon: <GraduationCap size={20} />, role: 'candidate' },
-  { path: '/candidate/notes', name: 'Notes', icon: <BookText size={20} />, role: 'candidate' },
   { path: '/candidate/profile', name: 'Profile', icon: <UserCircle size={20} />, role: 'candidate' },
   { path: '/recruiter/dashboard', name: 'Assessments', icon: <ClipboardList size={20} />, role: 'recruiter' },
   { path: '/recruiter/profile', name: 'Profile', icon: <UserCircle size={20} />, role: 'recruiter' },

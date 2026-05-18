@@ -5,6 +5,7 @@ import { MOCK_USERS, MOCK_ASSESSMENTS, MOCK_ASSESSMENT_RESULTS, MOCK_CANDIDATE_D
 import { authService } from '../services/authService';
 import { candidateService } from '../services/candidateService';
 import { recruiterService } from '../services/recruiterService';
+import { assessmentService } from '../services/assessmentService';
 
 type Theme = 'light' | 'dark';
 
@@ -37,6 +38,7 @@ interface AppContextType {
   createAssessment: (assessmentData: Omit<Assessment, 'id' | 'createdAt' | 'createdBy'>) => Promise<Assessment>;
   addAssessmentResult: (resultData: Omit<AssessmentResult, 'id' | 'completedAt'>) => void;
   deleteAssessment: (assessmentId: string) => void;
+  updateAssessmentResultStatus: (resultId: string, status: 'Pending' | 'Shortlisted' | 'Rejected' | 'Hold', reason?: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -79,6 +81,23 @@ if (!window.localStorage.getItem('usersDB')) {
   saveToStorage('candidateDataDB', mapToJson(candidateDataDB));
   saveToStorage('recruiterDataDB', mapToJson(recruiterDataDB));
 }
+
+// --- HYDRATION CHECK: Ensure new Mock Data (Sanjay S, etc) is merged if missing from old LocalStorage ---
+const mockAssessmentId = 'asmt_1';
+const mockResultId = 'res_1'; // Sanjay S
+
+if (!assessmentsDB.some(a => a.id === mockAssessmentId)) {
+  console.log("Hydrating missing Mock Assessment...");
+  assessmentsDB = [...assessmentsDB, ...MOCK_ASSESSMENTS.filter(ma => !assessmentsDB.some(a => a.id === ma.id))];
+  saveToStorage('assessmentsDB', assessmentsDB);
+}
+
+if (!assessmentResultsDB.some(r => r.id === mockResultId)) {
+  console.log("Hydrating missing Mock Results (Sanjay S)...");
+  assessmentResultsDB = [...assessmentResultsDB, ...MOCK_ASSESSMENT_RESULTS.filter(mr => !assessmentResultsDB.some(r => r.id === mr.id))];
+  saveToStorage('assessmentResultsDB', assessmentResultsDB);
+}
+
 
 // --- AppProvider Component ---
 
@@ -226,7 +245,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
           setRecruiterProfile(profile);
           setRecruiterSettings(settings);
-          setAssessments(assessmentsList);
+          
+          // Merge backend assessments with local/mock assessments to show dummy candidates
+          const backendIds = new Set(assessmentsList.map((a: Assessment) => a.id));
+          const mockToAdd = assessmentsDB.filter(a => !backendIds.has(a.id));
+          setAssessments([...assessmentsList, ...mockToAdd]);
         } catch (err) {
           console.error('Failed to load recruiter data:', err);
           // Fallback to mock data if backend fails
@@ -235,10 +258,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setRecruiterProfile(data.recruiterProfile);
             setRecruiterSettings(data.recruiterSettings);
           } else {
-            setRecruiterProfile({ fullName: userWithRole.name, email: userWithRole.email, company: 'AI Corp' });
+            setRecruiterProfile({ fullName: userWithRole.name, email: userWithRole.email, company: '' });
             setRecruiterSettings(defaultRecruiterSettings);
           }
         }
+
+
+
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
@@ -426,6 +452,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const addAssessmentResult = async (resultData: Omit<AssessmentResult, 'id' | 'completedAt'>) => {
     setLoading(true);
     try {
+      // 1. Submit to Backend (which handles AI Report & Email)
+      await assessmentService.submitAssessmentResult(resultData.assessmentId, {
+        candidateName: resultData.candidateName,
+        candidateEmail: resultData.candidateEmail,
+        session: resultData.session
+      });
+
+      // 2. Update Local State (Optimistic or standard)
       const newResult: AssessmentResult = {
         ...resultData,
         id: `res_${Date.now()}`,
@@ -434,8 +468,49 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       assessmentResultsDB.push(newResult);
       saveToStorage('assessmentResultsDB', assessmentResultsDB);
       setAssessmentResults(prev => [...prev, newResult]);
+
     } catch (err) {
-      console.error('Failed to add assessment result:', err);
+      console.error('Failed to submit assessment result:', err);
+      // Fallback: Save locally if network fails? 
+      // For now, let's allow local save even if backend fails, 
+      // but ideally we should alert the user.
+      const newResult: AssessmentResult = {
+        ...resultData,
+        id: `res_local_${Date.now()}`,
+        completedAt: new Date().toISOString(),
+      };
+      assessmentResultsDB.push(newResult);
+      saveToStorage('assessmentResultsDB', assessmentResultsDB);
+      setAssessmentResults(prev => [...prev, newResult]);
+    } finally {
+      setLoading(false);
+    }
+
+  };
+
+  const updateAssessmentResultStatus = async (resultId: string, status: 'Pending' | 'Shortlisted' | 'Rejected' | 'Hold', reason?: string) => {
+    setLoading(true);
+    try {
+      // In a real app, this would be an API call:
+      // await recruiterService.updateResultStatus(resultId, status, reason);
+
+      // Mock Email Notification
+      const result = assessmentResultsDB.find(r => r.id === resultId);
+      if (result) {
+        console.log(`[MOCK EMAIL SERVICE] Sending email to ${result.candidateEmail}`);
+        console.log(`Subject: Update on your application`);
+        console.log(`Body: Your status has been updated to: ${status}.`);
+        if (reason) console.log(`Reason: ${reason}`);
+      }
+
+      // Update Local State
+      const updatedResults = assessmentResultsDB.map(r => r.id === resultId ? { ...r, status } : r);
+      assessmentResultsDB = updatedResults;
+      saveToStorage('assessmentResultsDB', assessmentResultsDB);
+      setAssessmentResults(updatedResults);
+
+    } catch (err) {
+      console.error("Failed to update status", err);
     } finally {
       setLoading(false);
     }
@@ -496,7 +571,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateRecruiterSettings,
     createAssessment,
     addAssessmentResult,
-    deleteAssessment
+    deleteAssessment,
+    updateAssessmentResultStatus
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

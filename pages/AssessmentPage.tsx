@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Use named imports for react-router-dom v6.
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { getInterviewFeedback, generateInterviewSummary } from '../services/geminiService';
+import { getInterviewFeedback, generateInterviewSummary } from '../services/aiService';
 import Spinner, { PageSpinner } from '../components/Spinner';
 import { AlertTriangle, Timer, CheckCircle, Bot, Smile, User, Mic, Info, PlayCircle } from 'lucide-react';
 // FIX: Import SpeechRecognition type to resolve reference error.
 import type { Assessment, InterviewFeedback, InterviewSession, InterviewSummary, TranscriptEntry, InterviewConfig, Badge, SpeechRecognition } from '../types';
+import { correctTranscript } from '../utils/transcriptCorrection';
 
 // Speech Recognition Types
 // FIX: Removed local Speech Recognition type definitions to use centralized ones from types.ts. The type is now imported.
@@ -27,7 +28,7 @@ const evaluateBadges = (transcript: TranscriptEntry[]): Badge[] => {
 
         // Good Communicator badge: speaks for more than 30 seconds with minimal filler words.
         if (duration > 30 && (feedback.fillerWords || 0) <= 5) {
-             badges.add('Good Communicator');
+            badges.add('Good Communicator');
         }
     });
 
@@ -78,46 +79,46 @@ const DeviceSetup: React.FC<{
     const canStart = devices.cameras.length > 0 && devices.mics.length > 0;
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4">
-            <div className="w-full max-w-2xl bg-white p-6 sm:p-10 rounded-xl shadow-lg border border-slate-200 space-y-6">
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center">Interview Setup</h1>
-                <p className="text-center text-slate-600">Let's check your camera and microphone before you begin.</p>
-                
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center items-center p-4">
+            <div className="w-full max-w-2xl bg-white dark:bg-slate-800 p-6 sm:p-10 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 space-y-6">
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white text-center">Interview Setup</h1>
+                <p className="text-center text-slate-600 dark:text-slate-400">Let's check your camera and microphone before you begin.</p>
+
                 <div className="aspect-video bg-slate-800 rounded-lg overflow-hidden">
                     <video ref={videoRef} autoPlay muted className="w-full h-full object-cover"></video>
                 </div>
 
                 <div className="space-y-3">
-                    <div className="p-3 bg-slate-50 rounded-lg flex items-center justify-between">
-                        <p className="font-semibold text-sm flex items-center">
-                            {devices.cameras.length > 0 ? <CheckCircle size={16} className="text-green-500 mr-2"/> : <AlertTriangle size={16} className="text-red-500 mr-2"/>}
+                    <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg flex items-center justify-between border border-transparent dark:border-slate-700">
+                        <p className="font-semibold text-sm flex items-center dark:text-slate-200">
+                            {devices.cameras.length > 0 ? <CheckCircle size={16} className="text-green-500 mr-2" /> : <AlertTriangle size={16} className="text-red-500 mr-2" />}
                             Camera
                         </p>
-                        <p className="text-xs text-slate-500">{devices.cameras.length > 0 ? devices.cameras[0].label : 'Not detected'}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{devices.cameras.length > 0 ? devices.cameras[0].label : 'Not detected'}</p>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded-lg flex items-center justify-between">
-                        <p className="font-semibold text-sm flex items-center">
-                             {devices.mics.length > 0 ? <CheckCircle size={16} className="text-green-500 mr-2"/> : <AlertTriangle size={16} className="text-red-500 mr-2"/>}
-                             Microphone
+                    <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg flex items-center justify-between border border-transparent dark:border-slate-700">
+                        <p className="font-semibold text-sm flex items-center dark:text-slate-200">
+                            {devices.mics.length > 0 ? <CheckCircle size={16} className="text-green-500 mr-2" /> : <AlertTriangle size={16} className="text-red-500 mr-2" />}
+                            Microphone
                         </p>
-                         <p className="text-xs text-slate-500">{devices.mics.length > 0 ? devices.mics[0].label : 'Not detected'}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{devices.mics.length > 0 ? devices.mics[0].label : 'Not detected'}</p>
                     </div>
                 </div>
 
                 {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-800 text-sm p-3 rounded-md flex items-start">
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 text-sm p-3 rounded-md flex items-start">
                         <AlertTriangle size={18} className="mr-2 flex-shrink-0 mt-0.5" />
                         <span>{error}</span>
                     </div>
                 )}
 
 
-                <button 
-                    onClick={onStart} 
+                <button
+                    onClick={onStart}
                     disabled={!canStart || !!error}
                     className="w-full py-3 px-4 rounded-md shadow-sm text-xl font-semibold text-white bg-green-600 hover:bg-green-700 disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center"
                 >
-                   <PlayCircle size={22} className="mr-2"/> Start Interview
+                    <PlayCircle size={22} className="mr-2" /> Start Interview
                 </button>
             </div>
         </div>
@@ -130,7 +131,7 @@ const InterviewUI: React.FC<{
     userStream: MediaStream | null;
     onComplete: (session: InterviewSession) => void;
 }> = ({ assessment, userStream, onComplete }) => {
-    
+
     const [interviewStage, setInterviewStage] = useState<InterviewSubStage>('asking');
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [transcript, setTranscript] = useState('');
@@ -152,7 +153,7 @@ const InterviewUI: React.FC<{
             speechSynthesis.onvoiceschanged = null;
         };
     }, []);
-    
+
     useEffect(() => {
         setNoSpeechRetryCount(0);
     }, [currentQuestionIndex]);
@@ -164,56 +165,44 @@ const InterviewUI: React.FC<{
     const speechRetryRef = useRef(0);
     const submissionTriggeredRef = useRef(false);
     const MAX_SPEECH_RETRIES = 3;
-    
+
     const transcriptRef = useRef('');
     useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
-    
+
     const timerRef = useRef(0);
     useEffect(() => { timerRef.current = timer; }, [timer]);
 
     const interviewStageRef = useRef(interviewStage);
     useEffect(() => { interviewStageRef.current = interviewStage; }, [interviewStage]);
-    
-    const speak = useCallback((text: string, onEndCallback?: () => void) => {
-        speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
+    const speak = useCallback(async (text: string, onEndCallback?: () => void) => {
+        const { generateTTSAudio } = await import('../services/aiService');
+        speechSynthesis.cancel(); // Stop any leftover browser speaking
 
-        // --- Voice Selection Logic ---
-        // Attempt to use the "Zephyr" voice if available, as requested from the Gemini API examples.
-        // This voice is typically not available in browsers, so we have fallbacks.
-        let alexisVoice: SpeechSynthesisVoice | undefined;
+        // Pre-process text for more natural pauses
+        const processedText = text
+            .replace(/([.!?]\s+)/g, '$1')
+            .replace(/(,\s)/g, ', ')
+            .trim();
 
-        const idealVoice = voices.find(voice => voice.name === 'Zephyr');
-
-        if (idealVoice) {
-            alexisVoice = idealVoice;
-        } else {
-            // If "Zephyr" is not found, fallback to high-quality voices.
-            const preferredVoices = [
-                'Google US English', 
-                'Google UK English Female',
-                'Microsoft Zira - English (United States)',
-                'Microsoft Hazel - English (United Kingdom)',
-                'Samantha',
-            ];
-            
-            alexisVoice = voices.find(voice => preferredVoices.includes(voice.name));
-
-            // Generic fallback to any English female voice
-            if (!alexisVoice) {
-                alexisVoice = voices.find(voice => voice.lang.startsWith('en-') && voice.name.toLowerCase().includes('female'));
-            }
+        try {
+            const audioUrl = await generateTTSAudio(processedText, 'en-US');
+            const audio = new Audio(audioUrl);
+            audio.playbackRate = 0.9; // Natural pacing
+            audio.onended = () => {
+                if (onEndCallback) onEndCallback();
+                URL.revokeObjectURL(audioUrl);
+            };
+            audio.play().catch(err => {
+                console.error("Audio playback failed:", err);
+                if (onEndCallback) onEndCallback();
+            });
+        } catch (error) {
+            console.error("Failed to generate premium TTS, falling back to browser synthesis:", error);
+            const utterance = new SpeechSynthesisUtterance(processedText);
+            utterance.onend = onEndCallback;
+            speechSynthesis.speak(utterance);
         }
-        
-        if (alexisVoice) {
-            utterance.voice = alexisVoice;
-            utterance.pitch = 1.05;
-            utterance.rate = 1;
-        }
-        
-        utterance.onend = onEndCallback;
-        speechSynthesis.speak(utterance);
-    }, [voices]); // Depend on voices
+    }, []);
 
     const stopTimer = useCallback(() => {
         if (timerIntervalRef.current) {
@@ -245,7 +234,7 @@ const InterviewUI: React.FC<{
             setInterviewStage('transitioning');
         }
     }, [assessment.questions, currentQuestionIndex]);
-    
+
     const handleFinishInterview = useCallback(async () => {
         setInterviewStage('generating_summary');
         if (sessionTranscript.length === 0) {
@@ -357,7 +346,7 @@ const InterviewUI: React.FC<{
                     setInterviewStage('re_asking');
                 } else {
                     submissionTriggeredRef.current = true;
-                    handleAnswerSubmission("I did not provide an answer.", 0); 
+                    handleAnswerSubmission("I did not provide an answer.", 0);
                 }
                 return;
             }
@@ -390,16 +379,17 @@ const InterviewUI: React.FC<{
             let isFinal = false;
             for (let i = event.resultIndex; i < event.results.length; ++i) {
                 finalTranscript += event.results[i][0].transcript;
-                if(event.results[i].isFinal) isFinal = true;
+                if (event.results[i].isFinal) isFinal = true;
             }
-            setTranscript(finalTranscript);
+            // Correct phonetic misrecognitions (e.g. "nocches" → "Node.js")
+            setTranscript(correctTranscript(finalTranscript));
             if (isFinal) {
-                 silenceTimeoutRef.current = setTimeout(() => { recognitionRef.current?.stop(); }, 5000) as unknown as number;
+                silenceTimeoutRef.current = setTimeout(() => { recognitionRef.current?.stop(); }, 5000) as unknown as number;
             }
         };
         return () => {
             speechSynthesis.cancel();
-            if(recognitionRef.current) {
+            if (recognitionRef.current) {
                 recognitionRef.current.onend = null;
                 recognitionRef.current.abort();
             }
@@ -407,7 +397,7 @@ const InterviewUI: React.FC<{
             if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
         };
     }, [stopTimer, handleAnswerSubmission, noSpeechRetryCount]);
-    
+
     useEffect(() => {
         if (interviewStage === 'listening') {
             recognitionRef.current?.start();
@@ -415,7 +405,7 @@ const InterviewUI: React.FC<{
             recognitionRef.current.stop();
         }
     }, [interviewStage]);
-    
+
     useEffect(() => {
         if (userStream && userVideoRef.current) {
             userVideoRef.current.srcObject = userStream;
@@ -425,14 +415,14 @@ const InterviewUI: React.FC<{
     const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
 
     return (
-        <div className="flex flex-col h-screen overflow-hidden bg-slate-50">
-             <div className="flex-shrink-0 bg-white p-4 border-b border-slate-200 flex flex-wrap justify-between items-center gap-2">
+        <div className="flex flex-col h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
+            <div className="flex-shrink-0 bg-white dark:bg-slate-900 p-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap justify-between items-center gap-2">
                 <div>
-                    <h2 className="font-bold text-md sm:text-lg">{assessment.jobRole} Assessment</h2>
-                    <p className="text-sm text-slate-500">Question {currentQuestionIndex + 1} of {assessment.questions.length}</p>
+                    <h2 className="font-bold text-md sm:text-lg dark:text-white">{assessment.jobRole} Assessment</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Question {currentQuestionIndex + 1} of {assessment.questions.length}</p>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4">
-                    <div className="flex items-center gap-2 font-mono text-slate-600 bg-slate-100 px-3 py-1.5 rounded-md text-sm">
+                    <div className="flex items-center gap-2 font-mono text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-md text-sm">
                         <Timer size={16} />
                         <span>{formatTime(timer)}</span>
                     </div>
@@ -441,31 +431,31 @@ const InterviewUI: React.FC<{
             </div>
             <div className="flex-1 grid grid-cols-12 gap-4 sm:gap-6 p-4 sm:p-6 overflow-y-auto">
                 <div className="col-span-12 lg:col-span-8 space-y-4">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 relative min-h-[200px] flex flex-col items-center justify-center">
-                        <div className="absolute top-4 left-4 flex items-center gap-2 text-sm font-semibold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full">
-                            <Bot size={16}/> Alexis is asking...
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 relative min-h-[200px] flex flex-col items-center justify-center">
+                        <div className="absolute top-4 left-4 flex items-center gap-2 text-sm font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">
+                            <Bot size={16} /> Alexis is asking...
                         </div>
-                        <p className="text-xl sm:text-2xl font-semibold text-slate-800 text-center px-4 sm:px-8">{assessment.questions[currentQuestionIndex]}</p>
-                        {error && <div className="absolute bottom-4 left-4 right-4 text-sm text-red-600 bg-red-50 p-3 rounded-md flex items-center"><AlertTriangle size={16} className="mr-2" />{error}</div>}
+                        <p className="text-xl sm:text-2xl font-semibold text-slate-800 dark:text-white text-center px-4 sm:px-8">{assessment.questions[currentQuestionIndex]}</p>
+                        {error && <div className="absolute bottom-4 left-4 right-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-md flex items-center"><AlertTriangle size={16} className="mr-2" />{error}</div>}
                         {['analyzing', 'transitioning', 'generating_summary', 're_asking'].includes(interviewStage) && (
-                            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center space-y-2 animate-fade-in-fast">
-                                {interviewStage === 'analyzing' && <><Spinner /><p className="font-semibold text-slate-600">Analyzing...</p></>}
-                                {interviewStage === 'transitioning' && <><CheckCircle size={32} className="text-green-500"/><p className="font-semibold text-slate-600">Next question...</p></>}
-                                {interviewStage === 'generating_summary' && <><Spinner /><p className="font-semibold text-slate-600">Generating report...</p></>}
-                                {interviewStage === 're_asking' && <><Mic size={32} className="text-indigo-500" /><p className="font-semibold text-slate-600">I couldn't hear you. Let's try again.</p></>}
+                            <div className="absolute inset-0 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm flex flex-col items-center justify-center space-y-2 animate-fade-in-fast">
+                                {interviewStage === 'analyzing' && <><Spinner /><p className="font-semibold text-slate-600 dark:text-slate-300">Analyzing...</p></>}
+                                {interviewStage === 'transitioning' && <><CheckCircle size={32} className="text-green-500" /><p className="font-semibold text-slate-600 dark:text-slate-300">Next question...</p></>}
+                                {interviewStage === 'generating_summary' && <><Spinner /><p className="font-semibold text-slate-600 dark:text-slate-300">Generating report...</p></>}
+                                {interviewStage === 're_asking' && <><Mic size={32} className="text-indigo-500 dark:text-indigo-400" /><p className="font-semibold text-slate-600 dark:text-slate-300">I couldn't hear you. Let's try again.</p></>}
                             </div>
                         )}
                     </div>
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <p className="text-slate-600 italic min-h-[4em]">{transcript || "Your answer will appear here..."}</p>
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <p className="text-slate-600 dark:text-slate-400 italic min-h-[4em]">{transcript || "Your answer will appear here..."}</p>
                     </div>
                 </div>
                 <div className="col-span-12 lg:col-span-4 space-y-4">
-                    <div className="aspect-video bg-slate-800 rounded-xl overflow-hidden relative shadow-lg">
+                    <div className="aspect-video bg-slate-900 rounded-xl overflow-hidden relative shadow-lg border border-slate-700">
                         <video ref={userVideoRef} autoPlay muted className="w-full h-full object-cover"></video>
                     </div>
-                    <div className={`p-4 rounded-xl text-center transition-all duration-300 ${interviewStage === 'listening' ? 'bg-red-500 text-white shadow-red-300 shadow-lg' : 'bg-white'}`}>
-                        {interviewStage === 'listening' ? <p className="font-bold text-lg animate-pulse">RECORDING</p> : <p className="font-semibold text-slate-500">Not recording</p>}
+                    <div className={`p-4 rounded-xl text-center transition-all duration-300 ${interviewStage === 'listening' ? 'bg-red-500 text-white shadow-red-300 dark:shadow-red-900/40 shadow-lg' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'}`}>
+                        {interviewStage === 'listening' ? <p className="font-bold text-lg animate-pulse">RECORDING</p> : <p className="font-semibold text-slate-500 dark:text-slate-400">Not recording</p>}
                     </div>
                 </div>
             </div>
@@ -538,33 +528,33 @@ const AssessmentPage: React.FC = () => {
     }
 
     if (pageStage === 'error') {
-         return <div className="flex items-center justify-center h-screen"><p className="text-red-500">{error}</p></div>;
+        return <div className="flex items-center justify-center h-screen"><p className="text-red-500">{error}</p></div>;
     }
-    
+
     if (!assessment) {
         return <PageSpinner message="Loading assessment..." />;
     }
-    
+
     if (pageStage === 'instructions') {
         return (
-             <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4 text-center">
-                 <div className="w-full max-w-2xl bg-white p-6 sm:p-10 rounded-xl shadow-lg border border-slate-200 space-y-6">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Assessment Instructions</h1>
-                    <div className="text-left bg-slate-50 p-4 rounded-lg space-y-2">
-                        <p><strong>Position:</strong> {assessment.jobRole}</p>
-                        <p><strong>Type:</strong> {assessment.config.type}</p>
-                        <p><strong>Number of Questions:</strong> {assessment.questions.length}</p>
+            <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center items-center p-4 text-center">
+                <div className="w-full max-w-2xl bg-white dark:bg-slate-800 p-6 sm:p-10 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 space-y-6">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">Assessment Instructions</h1>
+                    <div className="text-left bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg space-y-2 border border-transparent dark:border-slate-700">
+                        <p className="dark:text-slate-200"><strong>Position:</strong> {assessment.jobRole}</p>
+                        <p className="dark:text-slate-200"><strong>Type:</strong> {assessment.config.type}</p>
+                        <p className="dark:text-slate-200"><strong>Number of Questions:</strong> {assessment.questions.length}</p>
                     </div>
-                    <div className="text-left space-y-2 text-slate-600">
-                        <p className="flex items-start"><Info size={18} className="mr-2 text-indigo-500 mt-1 flex-shrink-0" /><span>This is an AI-powered interview. Please ensure you are in a quiet environment with a stable internet connection.</span></p>
-                        <p className="flex items-start"><Mic size={18} className="mr-2 text-indigo-500 mt-1 flex-shrink-0" /><span>You will be asked a series of questions. Your answers will be recorded and analyzed.</span></p>
-                        <p className="flex items-start"><User size={18} className="mr-2 text-indigo-500 mt-1 flex-shrink-0" /><span>Please enable your camera and microphone when prompted by the browser.</span></p>
+                    <div className="text-left space-y-2 text-slate-600 dark:text-slate-400">
+                        <p className="flex items-start"><Info size={18} className="mr-2 text-indigo-500 dark:text-indigo-400 mt-1 flex-shrink-0" /><span>This is an AI-powered interview. Please ensure you are in a quiet environment with a stable internet connection.</span></p>
+                        <p className="flex items-start"><Mic size={18} className="mr-2 text-indigo-500 dark:text-indigo-400 mt-1 flex-shrink-0" /><span>You will be asked a series of questions. Your answers will be recorded and analyzed.</span></p>
+                        <p className="flex items-start"><User size={18} className="mr-2 text-indigo-500 dark:text-indigo-400 mt-1 flex-shrink-0" /><span>Please enable your camera and microphone when prompted by the browser.</span></p>
                     </div>
                     <button onClick={() => setPageStage('device_setup')} className="w-full py-3 px-4 rounded-md shadow-sm text-xl font-semibold text-white bg-green-600 hover:bg-green-700 flex items-center justify-center">
-                       <PlayCircle size={22} className="mr-2"/> Proceed to Setup
+                        <PlayCircle size={22} className="mr-2" /> Proceed to Setup
                     </button>
-                 </div>
-             </div>
+                </div>
+            </div>
         )
     }
 
@@ -575,9 +565,9 @@ const AssessmentPage: React.FC = () => {
     if (pageStage === 'interview') {
         return <InterviewUI assessment={assessment} userStream={userStream} onComplete={handleInterviewComplete} />;
     }
-    
+
     if (pageStage === 'submitting') {
-      return <PageSpinner message="Submitting your assessment..." />;
+        return <PageSpinner message="Submitting your assessment..." />;
     }
 
     return null; // Should not be reached

@@ -57,56 +57,56 @@ const RecruiterProfilePage: React.FC = () => {
     return (
         <div className="space-y-8 max-w-4xl mx-auto">
             <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">HR Profile</h1>
-                <p className="text-slate-600 mt-1">Manage your professional information and view account statistics.</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">HR Profile</h1>
+                <p className="text-slate-600 dark:text-slate-400 mt-1">Manage your professional information and view account statistics.</p>
             </div>
 
-            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200">
-                <h2 className="text-xl font-semibold mb-6">Account Statistics</h2>
+            <div className="bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                <h2 className="text-xl font-semibold mb-6 text-slate-900 dark:text-white">Account Statistics</h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                     <div>
-                        <p className="text-3xl font-bold text-indigo-600">{stats.totalAssessments}</p>
-                        <p className="text-sm text-slate-500">Total Assessments</p>
+                        <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{stats.totalAssessments}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Total Assessments</p>
                     </div>
                     <div>
-                        <p className="text-3xl font-bold text-indigo-600">{stats.activeInvites}</p>
-                        <p className="text-sm text-slate-500">Active Invites</p>
+                        <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{stats.activeInvites}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Active Invites</p>
                     </div>
                     <div>
-                        <p className="text-3xl font-bold text-indigo-600">{stats.completedInterviews}</p>
-                        <p className="text-sm text-slate-500">Completed Interviews</p>
+                        <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{stats.completedInterviews}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Completed Interviews</p>
                     </div>
                     <div>
-                        <p className="text-3xl font-bold text-indigo-600">{stats.shortlisted}</p>
-                        <p className="text-sm text-slate-500">Shortlisted</p>
+                        <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{stats.shortlisted}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Shortlisted</p>
                     </div>
                 </div>
             </div>
             
-            <form onSubmit={handleSaveChanges} className="bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200 space-y-6">
-                 <h2 className="text-xl font-semibold">Profile Details</h2>
+            <form onSubmit={handleSaveChanges} className="bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-6">
+                 <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Profile Details</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label htmlFor="fullName" className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                        <input type="text" id="fullName" name="fullName" value={profile.fullName} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                        <label htmlFor="fullName" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
+                        <input type="text" id="fullName" name="fullName" value={profile.fullName} onChange={handleChange} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
                     </div>
                     <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                        <input type="email" id="email" name="email" value={profile.email} disabled className="w-full px-3 py-2 border border-slate-200 bg-slate-50 text-slate-500 rounded-md shadow-sm" />
+                        <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
+                        <input type="email" id="email" name="email" value={profile.email} disabled className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 rounded-md shadow-sm" />
                     </div>
                 </div>
                 
                  <div>
-                    <label htmlFor="company" className="block text-sm font-medium text-slate-700 mb-1">Company</label>
-                    <input type="text" id="company" name="company" value={profile.company} onChange={handleChange} placeholder="Your Company Name" className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                    <label htmlFor="company" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Company</label>
+                    <input type="text" id="company" name="company" value={profile.company} onChange={handleChange} placeholder="Your Company Name" className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
                 </div>
 
-                <div className="flex items-center justify-end gap-4 pt-4 border-t border-slate-200">
-                    {saveSuccess && <p className="text-green-600 text-sm animate-fade-in">Profile saved successfully!</p>}
+                <div className="flex items-center justify-end gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                    {saveSuccess && <p className="text-green-600 dark:text-green-400 text-sm animate-fade-in">Profile saved successfully!</p>}
                     <button
                         type="submit"
                         disabled={isSaving}
-                        className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 disabled:bg-indigo-300 transition flex items-center"
+                        className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 disabled:bg-indigo-300 dark:disabled:bg-slate-700 transition flex items-center shadow-md hover:shadow-lg"
                     >
                         {isSaving ? <><Spinner size="h-5 w-5" /> <span className="ml-2">Saving...</span></> : <><Save size={16} className="mr-2"/> Save Changes</>}
                     </button>

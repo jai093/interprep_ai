@@ -22,8 +22,8 @@ const RecruiterAssessmentReportPage: React.FC = () => {
         return (
             <div className="text-center p-8">
                 <AlertTriangle className="mx-auto h-12 w-12 text-red-400" />
-                <h3 className="mt-2 text-lg font-medium text-slate-900">Report not found</h3>
-                <p className="mt-1 text-sm text-slate-500">The assessment result you are looking for does not exist or could not be loaded.</p>
+                <h3 className="mt-2 text-lg font-medium text-slate-900 dark:text-white">Report not found</h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">The assessment result you are looking for does not exist or could not be loaded.</p>
                 <div className="mt-6">
                     <Link to="/recruiter/dashboard" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
                         Go back to dashboard
@@ -39,8 +39,8 @@ const RecruiterAssessmentReportPage: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Assessment Report for {result.candidateName}</h1>
-                    <p className="text-slate-600 mt-1">Role: {assessment?.jobRole || 'N/A'} | Submitted: {new Date(result.completedAt).toLocaleDateString()}</p>
+                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Assessment Report for {result.candidateName}</h1>
+                    <p className="text-slate-600 dark:text-slate-400 mt-1">Role: {assessment?.jobRole || 'N/A'} | Submitted: {new Date(result.completedAt).toLocaleDateString()}</p>
                 </div>
             </div>
             <InterviewReport 

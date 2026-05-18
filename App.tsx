@@ -22,14 +22,13 @@ import NotFoundPage from './pages/NotFoundPage';
 import type { UserRole } from './types';
 import RecruiterAssessmentReportPage from './pages/RecruiterAssessmentReportPage';
 import LandingPage from './pages/LandingPage';
-import CandidateNotesPage from './pages/CandidateNotesPage';
-import CandidateCoachPage from './pages/CandidateCoachPage';
 import CandidateCommunicationPage from './pages/CandidateCommunicationPage';
+import CandidateReportPage from './pages/CandidateReportPage';
 
 const App: React.FC = () => {
   return (
     <AppProvider>
-      <div className="bg-slate-50 dark:bg-gray-900 text-slate-800 dark:text-gray-200 h-screen font-sans">
+      <div className="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 h-screen font-sans">
         <RouterComponent />
       </div>
     </AppProvider>
@@ -84,10 +83,9 @@ const RouterComponent: React.FC = () => {
           <Route path="/candidate/dashboard" element={<CandidateDashboardPage />} />
           <Route path="/candidate/roadmap" element={<CandidateRoadmapPage />} />
           <Route path="/candidate/interview" element={<CandidateInterviewPage />} />
-          <Route path="/candidate/coach" element={<CandidateCoachPage />} />
           <Route path="/candidate/communication" element={<CandidateCommunicationPage />} />
-          <Route path="/candidate/notes" element={<CandidateNotesPage />} />
           <Route path="/candidate/profile" element={<CandidateProfilePage />} />
+          <Route path="/candidate/report/:index" element={<CandidateReportPage />} />
         </Route>
 
         <Route element={<PrivateRoute role="recruiter" />}>

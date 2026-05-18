@@ -54,6 +54,53 @@ export const submitAssessmentResult = async (req: Request, res: Response, next: 
             return;
         }
 
+        // --- AI Report Generation ---
+        try {
+            // Import dynamically or at top-level. Importing at top-level is better but for this snippet:
+            const { generateReport } = await import('../services/aiService');
+
+            const report = await generateReport(
+                assessment.jobRole || "Candidate",
+                session.transcript || [],
+            );
+
+            // Merge AI report into session summary
+            if (session.summary) {
+                session.summary = {
+                    ...session.summary,
+                    ...report.metrics,
+                    candidateReport: report.candidateReport,
+                    recruiterReport: report.recruiterReport,
+                };
+            }
+
+            // --- Email Notification ---
+            const { sendRecruiterReportEmail } = await import('../services/emailService');
+            // Assuming the recruiter's email is in assessment.createdBy (which is just a string email in the model)
+            if (assessment.createdBy && assessment.createdBy.includes('@')) {
+                await sendRecruiterReportEmail(
+                    assessment.createdBy,
+                    candidateName,
+                    assessment.jobRole,
+                    `
+                    <h1>New Assessment Completed</h1>
+                    <p><strong>Candidate:</strong> ${candidateName}</p>
+                    <p><strong>Role:</strong> ${assessment.jobRole}</p>
+                    <p><strong>Score:</strong> ${session.averageScore}%</p>
+                    <hr/>
+                    <h3>Recruiter Summary</h3>
+                    <p>${report.recruiterReport}</p>
+                    <br/>
+                    <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/recruiter/dashboard">View Full Report</a>
+                    `
+                ).catch(err => console.error("Failed to send email:", err));
+            }
+
+        } catch (error) {
+            console.error("Error generating report or sending email during submission:", error);
+            // We continue to save the result even if AI/Email fails, but log it.
+        }
+
         const result = new AssessmentResult({
             assessment: assessmentId,
             candidateName,
@@ -67,6 +114,7 @@ export const submitAssessmentResult = async (req: Request, res: Response, next: 
         res.status(201).json({
             message: 'Assessment result submitted successfully',
             resultId: result._id,
+            report: session.summary // Return the updated summary to the frontend
         });
     } catch (error) {
         next(error);

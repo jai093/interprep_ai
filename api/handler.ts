@@ -18,36 +18,56 @@ dotenv.config({ path: '.env.local' });
 
 const app = express();
 
+// Path Reconstruction Middleware for Vercel
+app.use((req, res, next) => {
+  const pathParam = req.query.path;
+  if (pathParam) {
+    const urlParts = req.url.split('?');
+    let queryString = '';
+    if (urlParts[1]) {
+      const searchParams = new URLSearchParams(urlParts[1]);
+      searchParams.delete('path');
+      const searchStr = searchParams.toString();
+      queryString = searchStr ? '?' + searchStr : '';
+    }
+    req.url = '/api/' + pathParam + queryString;
+  }
+  next();
+});
+
 // Middleware
 app.use(helmet());
 
-// Configure CORS
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+// Configure CORS dynamically to support custom domains
+app.use(cors((req, callback) => {
+  const origin = req.header('Origin');
+  const host = req.header('Host');
 
-    const allowedOrigins = [
-      process.env.CORS_ORIGIN,
-      'https://interprepai-olive.vercel.app',
-      'https://interprepai-five.vercel.app', // Explicitly add user's domain
-      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
-      'http://localhost:3000',
-      'http://localhost:5173'
-    ].filter(Boolean).map(s => String(s).split(',')).flat().map(s => s.trim());
+  const allowedOrigins = [
+    process.env.CORS_ORIGIN,
+    'https://interprepai-olive.vercel.app',
+    'https://interprepai-five.vercel.app',
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ].filter(Boolean).map(s => String(s).split(',')).flat().map(s => s.trim());
 
-    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+  let isAllowed = false;
+  if (!origin) {
+    isAllowed = true;
+  } else if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+    isAllowed = true;
+  } else if (origin.endsWith('.vercel.app')) {
+    isAllowed = true;
+  } else if (host && (origin === `https://${host}` || origin === `http://${host}`)) {
+    isAllowed = true;
+  }
 
-    // Allow any Vercel deployment subdomain
-    if (origin.endsWith('.vercel.app')) {
-      return callback(null, true);
-    }
-
-    return callback(new Error(`Not allowed by CORS: ${origin}`));
-  },
-  credentials: true,
+  if (isAllowed) {
+    callback(null, { origin: true, credentials: true });
+  } else {
+    callback(new Error(`Not allowed by CORS: ${origin}`));
+  }
 }));
 
 // DB Connection Middleware - runs closer to request handling to ensure CORS headers are set
@@ -58,9 +78,6 @@ app.use(async (req, res, next) => {
     return next(new Error('MONGODB_URI is missing in Vercel Environment Variables'));
   }
 
-  if (mongoose.connection.readyState === 1) {
-    return next();
-  }
   try {
     await connectDB();
     next();

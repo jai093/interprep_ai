@@ -2,10 +2,10 @@ export type UserRole = 'candidate' | 'recruiter';
 export type Badge = 'Good Communicator' | 'Time Manager';
 
 export interface User {
-  name: string;
-  email: string;
-  password?: string; // Stored only in localStorage for simulation
-  role: UserRole;
+    name: string;
+    email: string;
+    password?: string; // Stored only in localStorage for simulation
+    role: UserRole;
 }
 
 export interface UserProfile {
@@ -34,40 +34,40 @@ export interface RecruiterSettings {
 }
 
 export interface Experience {
-  jobTitle: string;
-  company: string;
-  duration: string;
-  responsibilities: string[];
+    jobTitle: string;
+    company: string;
+    duration: string;
+    responsibilities: string[];
 }
 
 export interface Education {
-  degree: string;
-  institution: string;
-  year: string;
+    degree: string;
+    institution: string;
+    year: string;
 }
 
 export interface ResumeData {
-  name: string;
-  email: string;
-  phone: string;
-  summary: string;
-  skills: string[];
-  experience: Experience[];
-  education: Education[];
+    name: string;
+    email: string;
+    phone: string;
+    summary: string;
+    skills: string[];
+    experience: Experience[];
+    education: Education[];
 }
 
 export interface RoadmapStep {
-  title: string;
-  description: string;
-  duration: string;
-  resources: string[];
+    title: string;
+    description: string;
+    duration: string;
+    resources: string[];
 }
 
 export interface CareerRoadmap {
-  targetRole: string;
-  skillGaps: string[];
-  shortTermPlan: RoadmapStep[];
-  longTermPlan: RoadmapStep[];
+    targetRole: string;
+    skillGaps: string[];
+    shortTermPlan: RoadmapStep[];
+    longTermPlan: RoadmapStep[];
 }
 
 export interface InterviewQuestion {
@@ -106,6 +106,13 @@ export interface InterviewSummary {
     simulatedBodyLanguageAnalysis: string;
     simulatedAudioAnalysis: string;
     badgesEarned?: Badge[];
+    metrics?: {
+        strengths: string[];
+        weaknesses: string[];
+        communicationScore: number;
+    };
+    candidateReport?: string;
+    recruiterReport?: string;
 }
 
 export interface InterviewConfig {
@@ -131,6 +138,7 @@ export interface InterviewSession {
     config: InterviewConfig;
     transcript: TranscriptEntry[];
     summary: InterviewSummary;
+    videoUrl?: string;
 }
 
 
@@ -158,6 +166,7 @@ export interface AssessmentResult {
     candidateName: string;
     candidateEmail: string;
     completedAt: string; // ISO date string
+    status?: 'Pending' | 'Shortlisted' | 'Rejected' | 'Hold';
     session: InterviewSession;
 }
 

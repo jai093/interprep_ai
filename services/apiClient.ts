@@ -5,7 +5,7 @@
 // - When running locally (hostname === 'localhost') and the var is unset, fall back to localhost backend.
 // - Otherwise (deployed frontend with no VITE_API_URL), use an empty string so requests become relative to the current origin.
 const _envApiUrl = (import.meta.env.VITE_API_URL as string) || '';
-let API_URL = '';
+export let API_URL = '';
 if (_envApiUrl) {
   API_URL = _envApiUrl;
 } else if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {

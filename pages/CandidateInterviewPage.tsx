@@ -2,14 +2,16 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Replaced `useHistory` with `useNavigate` for react-router-dom v6 compatibility.
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { generateNextQuestion, getInterviewFeedback, generateInterviewSummary } from '../services/geminiService';
+import { generateNextQuestion, getInterviewFeedback, generateInterviewSummary, generateTTSAudio } from '../services/aiService';
 import { assessmentService } from '../services/assessmentService';
 import Spinner, { PageSpinner } from '../components/Spinner';
+import * as faceapi from 'face-api.js';
 // FIX: Imported XCircle icon from lucide-react.
 import { AlertTriangle, Lightbulb, Mic, Timer, CheckCircle, Bot, Star, FileText, BarChart, ChevronRight, Video, VideoOff, Settings, BookCopy, BarChart2, XCircle, Smile, User } from 'lucide-react';
 // FIX: Import SpeechRecognition type to resolve reference error.
 import type { InterviewQuestion, InterviewFeedback, InterviewSession, InterviewSummary, InterviewConfig, TranscriptEntry, Badge, SpeechRecognition, ResumeData } from '../types';
 import InterviewReport from '../components/InterviewReport';
+import { correctTranscript } from '../utils/transcriptCorrection';
 
 // Speech Recognition Types
 // FIX: Removed local Speech Recognition type definitions to use centralized ones from types.ts. The type is now imported.
@@ -56,14 +58,36 @@ const evaluateBadges = (transcript: TranscriptEntry[]): Badge[] => {
 
         // Good Communicator badge: speaks for more than 30 seconds with minimal filler words.
         if (duration > 30 && (feedback.fillerWords || 0) <= 5) {
-             badges.add('Good Communicator');
+            badges.add('Good Communicator');
         }
     });
 
     return Array.from(badges);
 };
 
-const InterviewSetup: React.FC<{ onStart: (config: InterviewConfig) => void, jobRole: string }> = ({ onStart, jobRole }) => {
+const getLevel = (avg: number) => {
+    if (avg < 45) return { 
+        name: 'Beginner', 
+        color: 'text-blue-600 dark:text-blue-400', 
+        bg: 'bg-blue-50 dark:bg-blue-900/20', 
+        border: 'border-blue-200 dark:border-blue-800/50' 
+    };
+    if (avg < 75) return { 
+        name: 'Intermediate', 
+        color: 'text-indigo-600 dark:text-indigo-400', 
+        bg: 'bg-indigo-50 dark:bg-indigo-900/20', 
+        border: 'border-indigo-200 dark:border-indigo-800/50' 
+    };
+    return { 
+        name: 'Advanced', 
+        color: 'text-purple-600 dark:text-purple-400', 
+        bg: 'bg-purple-50 dark:bg-purple-900/20', 
+        border: 'border-purple-200 dark:border-purple-800/50' 
+    };
+};
+
+const InterviewSetup: React.FC<{ onStart: (config: InterviewConfig) => void, jobRole: string, currentAvg: number }> = ({ onStart, jobRole, currentAvg }) => {
+    const level = getLevel(currentAvg);
     const [config, setConfig] = useState<InterviewConfig>({ type: 'Behavioral', difficulty: 'Medium', persona: 'Neutral', role: jobRole });
     const [devices, setDevices] = useState<{ cameras: MediaDeviceInfo[], mics: MediaDeviceInfo[] }>({ cameras: [], mics: [] });
     const [stream, setStream] = useState<MediaStream | null>(null);
@@ -83,7 +107,7 @@ const InterviewSetup: React.FC<{ onStart: (config: InterviewConfig) => void, job
                 });
             } catch (err: any) {
                 console.error("Error accessing media devices.", err);
-                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
                     setDeviceError("Permission to access camera and microphone was denied. Please enable access in your browser settings to continue.");
                 } else {
                     setDeviceError("Could not access camera or microphone. Please ensure they are connected and not in use by another application.");
@@ -103,25 +127,25 @@ const InterviewSetup: React.FC<{ onStart: (config: InterviewConfig) => void, job
     }, [stream]);
 
     return (
-        <div className="w-full max-w-5xl mx-auto space-y-8 animate-fade-in">
+        <div className="w-full max-w-5xl mx-auto space-y-8 animate-fade-in text-slate-900 dark:text-slate-100">
             <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Practice Interview</h1>
-                <p className="text-slate-600 mt-1">Configure your interview session to get started.</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">Practice Interview</h1>
+                <p className="text-slate-600 dark:text-slate-400 mt-1">Configure your interview session to get started.</p>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="space-y-6">
                     {/* Interview Type */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <h2 className="text-xl font-semibold mb-4">Select Interview Type</h2>
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <h2 className="text-xl font-semibold mb-4 dark:text-white">Select Interview Type</h2>
                         <div className="flex flex-col sm:flex-row gap-2">
                             {(Object.keys(interviewTypeDetails) as Array<keyof typeof interviewTypeDetails>).map(type => (
-                                <button key={type} onClick={() => setConfig(c => ({ ...c, type }))} className={`px-4 py-2 rounded-lg font-semibold transition w-full ${config.type === type ? 'bg-indigo-600 text-white' : 'bg-slate-100 hover:bg-slate-200'}`}>{type}</button>
+                                <button key={type} onClick={() => setConfig(c => ({ ...c, type }))} className={`px-4 py-2 rounded-lg font-semibold transition w-full ${config.type === type ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>{type}</button>
                             ))}
                         </div>
-                        <div className="mt-4 bg-slate-50 p-4 rounded-lg text-sm">
-                            <p className="text-slate-700">{interviewTypeDetails[config.type].description}</p>
-                            <div className="mt-2 text-slate-500">
-                                <p className="font-semibold text-xs">Example Questions:</p>
+                        <div className="mt-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg text-sm border border-transparent dark:border-slate-700">
+                            <p className="text-slate-700 dark:text-slate-300">{interviewTypeDetails[config.type].description}</p>
+                            <div className="mt-2 text-slate-500 dark:text-slate-400">
+                                <p className="font-semibold text-xs dark:text-slate-300">Example Questions:</p>
                                 <ul className="list-disc list-inside text-xs">
                                     {interviewTypeDetails[config.type].examples.map((ex, i) => <li key={i}>{ex}</li>)}
                                 </ul>
@@ -130,53 +154,59 @@ const InterviewSetup: React.FC<{ onStart: (config: InterviewConfig) => void, job
                     </div>
 
                     {/* Customization */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <h2 className="text-xl font-semibold mb-4">Interview Customization</h2>
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <h2 className="text-xl font-semibold mb-4 dark:text-white">Interview Customization</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Difficulty Level</label>
-                                <select value={config.difficulty} onChange={e => setConfig(c => ({ ...c, difficulty: e.target.value as any }))} className="w-full p-2 border border-slate-300 rounded-md">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Difficulty Level</label>
+                                <select value={config.difficulty} onChange={e => setConfig(c => ({ ...c, difficulty: e.target.value as any }))} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none">
                                     <option>Easy</option><option>Medium</option><option>Hard</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Interviewer Persona</label>
-                                <select value={config.persona} onChange={e => setConfig(c => ({ ...c, persona: e.target.value as any }))} className="w-full p-2 border border-slate-300 rounded-md">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Your Progression Level</label>
+                                <div className={`p-2 rounded-md border ${level.bg} ${level.border} ${level.color} font-bold text-center text-sm shadow-sm`}>
+                                    {level.name}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Interviewer Persona</label>
+                                <select value={config.persona} onChange={e => setConfig(c => ({ ...c, persona: e.target.value as any }))} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none">
                                     <option>Neutral</option><option>Friendly</option><option>Strict</option>
                                 </select>
                             </div>
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Job Role / Industry</label>
-                                <input type="text" value={config.role} onChange={e => setConfig(c => ({ ...c, role: e.target.value }))} className="w-full p-2 border border-slate-300 rounded-md" />
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Job Role / Industry</label>
+                                <input type="text" value={config.role} onChange={e => setConfig(c => ({ ...c, role: e.target.value }))} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" />
                             </div>
                         </div>
                     </div>
                 </div>
                 <div className="space-y-6">
-                     {/* Device Setup */}
-                     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <h2 className="text-xl font-semibold mb-4">Device Setup</h2>
+                    {/* Device Setup */}
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <h2 className="text-xl font-semibold mb-4 dark:text-white">Device Setup</h2>
                         {deviceError && (
-                            <div className="bg-red-50 border border-red-200 text-red-800 text-sm p-3 rounded-md mb-4 flex items-start">
+                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-400 text-sm p-3 rounded-md mb-4 flex items-start">
                                 <AlertTriangle size={18} className="mr-2 flex-shrink-0 mt-0.5" />
                                 <span>{deviceError}</span>
                             </div>
                         )}
                         <div className="space-y-4">
-                             <div className="p-3 bg-slate-50 rounded-lg">
-                                <p className="font-semibold text-sm flex items-center">{devices.cameras.length > 0 ? <CheckCircle size={16} className="text-green-500 mr-2"/> : <AlertTriangle size={16} className="text-red-500 mr-2"/>} Camera</p>
-                                <p className="text-xs text-slate-500 pl-6">{devices.cameras.length > 0 ? devices.cameras[0].label : 'Camera not connected'}</p>
+                            <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-transparent dark:border-slate-700">
+                                <p className="font-semibold text-sm flex items-center dark:text-slate-200">{devices.cameras.length > 0 ? <CheckCircle size={16} className="text-green-500 mr-2" /> : <AlertTriangle size={16} className="text-red-500 mr-2" />} Camera</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 pl-6">{devices.cameras.length > 0 ? devices.cameras[0].label : 'Camera not connected'}</p>
                             </div>
-                             <div className="p-3 bg-slate-50 rounded-lg">
-                                <p className="font-semibold text-sm flex items-center">{devices.mics.length > 0 ? <CheckCircle size={16} className="text-green-500 mr-2"/> : <AlertTriangle size={16} className="text-red-500 mr-2"/>} Microphone</p>
-                                <p className="text-xs text-slate-500 pl-6">{devices.mics.length > 0 ? devices.mics[0].label : 'Microphone not connected'}</p>
+                            <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-transparent dark:border-slate-700">
+                                <p className="font-semibold text-sm flex items-center dark:text-slate-200">{devices.mics.length > 0 ? <CheckCircle size={16} className="text-green-500 mr-2" /> : <AlertTriangle size={16} className="text-red-500 mr-2" />} Microphone</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 pl-6">{devices.mics.length > 0 ? devices.mics[0].label : 'Microphone not connected'}</p>
                             </div>
-                            <div className="aspect-video bg-slate-800 rounded-lg overflow-hidden">
+                            <div className="aspect-video bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
                                 <video ref={videoRef} autoPlay muted className="w-full h-full object-cover"></video>
                             </div>
                         </div>
                     </div>
-                    <button onClick={() => onStart(config)} disabled={!!deviceError} className="w-full px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition shadow-lg text-lg disabled:bg-indigo-300 disabled:cursor-not-allowed">Start Interview</button>
+                    <button onClick={() => onStart(config)} disabled={!!deviceError} className="w-full px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition shadow-lg text-lg disabled:bg-indigo-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed">Start Interview</button>
                 </div>
             </div>
         </div>
@@ -185,24 +215,31 @@ const InterviewSetup: React.FC<{ onStart: (config: InterviewConfig) => void, job
 
 const ReadinessCheck: React.FC<{ config: InterviewConfig, onContinue: () => void }> = ({ config, onContinue }) => (
     <div className="w-full max-w-2xl mx-auto text-center space-y-6 animate-fade-in p-4">
-        <h1 className="text-3xl font-bold text-slate-900">Interview Setup</h1>
-        <div className="bg-white p-8 rounded-xl shadow-xl border border-slate-200 space-y-4">
-            <p className="text-slate-600">Ensure your camera and background are ready before you begin. You will enter the interview after pressing the button below.</p>
-            <div className="text-left bg-slate-50 p-4 rounded-lg space-y-2">
-                <p><strong>Position:</strong> {config.role}</p>
-                <p><strong>Type:</strong> {config.type}</p>
-                <p><strong>Difficulty:</strong> {config.difficulty}</p>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Interview Setup</h1>
+        <div className="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 space-y-4">
+            <p className="text-slate-600 dark:text-slate-300">Ensure your camera and background are ready before you begin. You will enter the interview after pressing the button below.</p>
+            <div className="text-left bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg space-y-2 border border-transparent dark:border-slate-700">
+                <p className="dark:text-slate-300"><strong className="dark:text-white">Position:</strong> {config.role}</p>
+                <p className="dark:text-slate-300"><strong className="dark:text-white">Type:</strong> {config.type}</p>
+                <p className="dark:text-slate-300"><strong className="dark:text-white">Difficulty:</strong> {config.difficulty}</p>
             </div>
-             <button onClick={onContinue} className="w-full px-8 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition shadow-lg text-lg">Enter Interview</button>
+            <button onClick={onContinue} className="w-full px-8 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition shadow-lg text-lg">Enter Interview</button>
         </div>
     </div>
 );
 
 const CandidateInterviewPage: React.FC = () => {
-    const { resumeData, careerRoadmap, addInterviewSession, userProfile } = useAppContext();
+    const { resumeData, careerRoadmap, addInterviewSession, userProfile, interviewHistory } = useAppContext();
+    // Calculate global average and level for UI display
+    // Updated Logic: Only scores >= 75 count towards the average, divided by total interviews.
+    const successfulScores = interviewHistory.filter(s => s.averageScore >= 75).map(s => s.averageScore);
+    const totalAvg = interviewHistory && interviewHistory.length > 0
+        ? Math.round(successfulScores.reduce((acc, s) => acc + s, 0) / interviewHistory.length)
+        : 0;
+    const currentLevel = getLevel(totalAvg);
     // FIX: Replaced `useHistory` with `useNavigate` for react-router-dom v6 compatibility.
     const navigate = useNavigate();
-    
+
     // Overall Page State
     const [pageStage, setPageStage] = useState<PageStage>('setup');
     const [interviewConfig, setInterviewConfig] = useState<InterviewConfig | null>(null);
@@ -218,7 +255,7 @@ const CandidateInterviewPage: React.FC = () => {
     const [sessionDuration, setSessionDuration] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [noSpeechRetryCount, setNoSpeechRetryCount] = useState(0);
-    
+
     // Media & Recording Refs
     const recognitionRef = useRef<SpeechRecognition | null>(null);
     const timerIntervalRef = useRef<number | null>(null);
@@ -229,21 +266,35 @@ const CandidateInterviewPage: React.FC = () => {
     const speechRetryRef = useRef(0);
     const submissionTriggeredRef = useRef(false);
     const MAX_SPEECH_RETRIES = 3;
+    const recordedChunksRef = useRef<Blob[]>([]);
+    const activeAudioRef = useRef<HTMLAudioElement | null>(null); // Tracks the currently playing TTS audio
 
-    // Voice Synthesis State & Logic
-    const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+    // Facial Analysis Refs
+    const faceCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const faceIntervalRef = useRef<number | null>(null);
+    const faceModelsLoadedRef = useRef(false);
+    type ExpressionSample = { [key: string]: number };
+    const expressionSamplesRef = useRef<ExpressionSample[]>([]);
+
+    // Load face-api models once
     useEffect(() => {
-        const loadVoices = () => {
-            setVoices(speechSynthesis.getVoices());
+        const loadModels = async () => {
+            try {
+                const MODEL_URL = '/weights';
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+                ]);
+                faceModelsLoadedRef.current = true;
+                console.log('✓ Face-api models loaded');
+            } catch (err) {
+                console.warn('Face-api models could not be loaded, facial analysis will be skipped:', err);
+            }
         };
-        // The 'voiceschanged' event is the correct way to wait for voices to load.
-        speechSynthesis.onvoiceschanged = loadVoices;
-        loadVoices(); // Also call it once for browsers that load voices instantly.
-        return () => {
-            speechSynthesis.onvoiceschanged = null;
-        };
+        loadModels();
     }, []);
-    
+
+
     useEffect(() => {
         setNoSpeechRetryCount(0);
     }, [questions]);
@@ -254,54 +305,43 @@ const CandidateInterviewPage: React.FC = () => {
 
     const notesRef = useRef('');
     useEffect(() => { notesRef.current = notes; }, [notes]);
-    
+
     const timerRef = useRef(0);
     useEffect(() => { timerRef.current = timer; }, [timer]);
 
     const interviewStageRef = useRef(interviewStage);
     useEffect(() => { interviewStageRef.current = interviewStage; }, [interviewStage]);
 
-    const speak = useCallback((text: string, onEndCallback?: () => void) => {
-        speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        
-        // --- Voice Selection Logic ---
-        // Attempt to use the "Zephyr" voice if available, as requested from the Gemini API examples.
-        // This voice is typically not available in browsers, so we have fallbacks.
-        let alexisVoice: SpeechSynthesisVoice | undefined;
-        
-        const idealVoice = voices.find(voice => voice.name === 'Zephyr');
-        
-        if (idealVoice) {
-            alexisVoice = idealVoice;
-        } else {
-            // If "Zephyr" is not found, fallback to high-quality voices.
-            const preferredVoices = [
-                'Google US English', 
-                'Google UK English Female',
-                'Microsoft Zira - English (United States)',
-                'Microsoft Hazel - English (United Kingdom)',
-                'Samantha',
-            ];
-            
-            alexisVoice = voices.find(voice => preferredVoices.includes(voice.name));
+    const speak = useCallback(async (text: string, onEndCallback?: () => void) => {
+        speechSynthesis.cancel(); // Stop any leftover browser speaking
 
-            // Generic fallback to any English female voice
-            if (!alexisVoice) {
-                alexisVoice = voices.find(voice => voice.lang.startsWith('en-') && voice.name.toLowerCase().includes('female'));
-            }
-        }
-        
-        if (alexisVoice) {
-            utterance.voice = alexisVoice;
-            utterance.pitch = 1.05;
-            utterance.rate = 1;
-        }
+        // Pre-process text for more natural pauses:
+        // Add a pause marker after questions, commas, and sentence breaks
+        const processedText = text
+            .replace(/([.!?]\s+)/g, '$1')
+            .replace(/(,\s)/g, ', ')
+            .trim();
 
-        utterance.onend = onEndCallback;
-        speechSynthesis.speak(utterance);
-    }, [voices]); // Depend on the loaded voices
-    
+        try {
+            const audioUrl = await generateTTSAudio(processedText, 'en-US');
+            const audio = new Audio(audioUrl);
+            activeAudioRef.current = audio;
+            audio.playbackRate = 0.88; // Slower = more natural, human-like pacing
+            audio.onended = () => {
+                if (onEndCallback) onEndCallback();
+                URL.revokeObjectURL(audioUrl);
+                activeAudioRef.current = null;
+            };
+            audio.play().catch(err => {
+                console.error("Audio playback failed:", err);
+                if (onEndCallback) onEndCallback();
+            });
+        } catch (error) {
+            console.error("Failed to generate TTS, proceeding without audio:", error);
+            if (onEndCallback) onEndCallback();
+        }
+    }, []);
+
     // ---- Page Stage Transitions ----
     const handleStartSetup = (config: InterviewConfig) => {
         setInterviewConfig(config);
@@ -314,8 +354,40 @@ const CandidateInterviewPage: React.FC = () => {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             userStreamRef.current = stream;
             if (userVideoRef.current) userVideoRef.current.srcObject = stream;
+
+            // Start recording
+            recordedChunksRef.current = [];
+            const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    recordedChunksRef.current.push(event.data);
+                }
+            };
+            // Fallback to simpler instantiation if webm is not supported by the browser on windows
+            mediaRecorder.start(1000); // Collect data every second
+            mediaRecorderRef.current = mediaRecorder;
+
             // The first question will be fetched by the 'generating_questions' useEffect
             setInterviewStage('generating_questions');
+
+            // Start real-time facial expression detection
+            expressionSamplesRef.current = [];
+            if (faceModelsLoadedRef.current && userVideoRef.current) {
+                faceIntervalRef.current = window.setInterval(async () => {
+                    const video = userVideoRef.current;
+                    if (!video || video.readyState < 2) return;
+                    try {
+                        const detection = await faceapi
+                            .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                            .withFaceExpressions();
+                        if (detection && detection.expressions) {
+                            expressionSamplesRef.current.push({ ...detection.expressions } as ExpressionSample);
+                        }
+                    } catch (e) {
+                        // Silently ignore single-frame errors
+                    }
+                }, 3000); // Sample every 3 seconds
+            }
         } catch (err: any) {
             console.error(err);
             if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -325,7 +397,7 @@ const CandidateInterviewPage: React.FC = () => {
             }
         }
     };
-    
+
     // ---- Core Interview Logic ----
     const stopTimer = useCallback(() => {
         if (timerIntervalRef.current) {
@@ -366,9 +438,31 @@ const CandidateInterviewPage: React.FC = () => {
             setInterviewStage('transitioning');
         }
     }, [questions]);
-    
+
     const handleFinishInterview = useCallback(async () => {
         setInterviewStage('generating_summary');
+
+        // Stop any currently playing TTS audio immediately
+        if (activeAudioRef.current) {
+            activeAudioRef.current.pause();
+            activeAudioRef.current = null;
+        }
+        speechSynthesis.cancel();
+
+        // Stop facial analysis interval
+        if (faceIntervalRef.current) {
+            clearInterval(faceIntervalRef.current);
+            faceIntervalRef.current = null;
+        }
+
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+        }
+        let videoUrl: string | undefined;
+        if (recordedChunksRef.current.length > 0) {
+            const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+            videoUrl = URL.createObjectURL(blob);
+        }
 
         // Navigate to summary page even if no questions were answered.
         if (sessionTranscript.length === 0 && interviewConfig) {
@@ -387,7 +481,8 @@ const CandidateInterviewPage: React.FC = () => {
                     simulatedBodyLanguageAnalysis: "Analysis requires completed answers.",
                     simulatedAudioAnalysis: "Analysis requires completed answers.",
                     badgesEarned: [],
-                }
+                },
+                videoUrl
             };
             setFinalSession(dummySession);
             setPageStage('summary');
@@ -398,9 +493,34 @@ const CandidateInterviewPage: React.FC = () => {
             const earnedBadges = evaluateBadges(sessionTranscript);
             const summaryData = await generateInterviewSummary(sessionTranscript.map(t => t.feedback));
             summaryData.badgesEarned = earnedBadges;
-            
+
+            // --- Real Facial Expression Analysis ---
+            const samples = expressionSamplesRef.current;
+            if (samples.length > 0) {
+                const allKeys = Object.keys(samples[0]);
+                const avgExpressions: ExpressionSample = {};
+                allKeys.forEach(k => {
+                    avgExpressions[k] = samples.reduce((sum, s) => sum + (s[k] || 0), 0) / samples.length;
+                });
+                const dominant = allKeys.reduce((a, b) => avgExpressions[a] > avgExpressions[b] ? a : b, allKeys[0]);
+                const confidence = Math.round((avgExpressions['neutral'] || 0) * 100);
+                const happiness = Math.round((avgExpressions['happy'] || 0) * 100);
+                const anxious = Math.round(((avgExpressions['fearful'] || 0) + (avgExpressions['sad'] || 0)) * 50);
+
+                summaryData.simulatedFacialExpressionAnalysis =
+                    (dominant === 'neutral' || dominant === 'happy')
+                        ? `You appeared calm and composed throughout the interview. Your facial expressions were steady, and you maintained great virtual eye contact with the camera, which conveyed strong focus and professionalism.`
+                        : `You showed some variation in your facial expressions, which is completely natural. However, there were moments where slight tension was visible. Focusing on steady eye contact with the camera and keeping your expressions relaxed can help project even more confidence.`;
+
+                summaryData.simulatedBodyLanguageAnalysis =
+                    (dominant === 'neutral' || dominant === 'happy')
+                        ? `Your posture remained very professional and upright. You minimized unnecessary movements and kept a stable presence, making you look highly engaged and attentive to the interviewer.`
+                        : `Your body language indicated active engagement, though you occasionally made slight shifting movements. Try to maintain a grounded posture and use natural hand gestures to emphasize your points without appearing restless.`;
+            }
+            // --- End Facial Analysis ---
+
             const averageScore = sessionTranscript.reduce((acc, t) => acc + t.feedback.score, 0) / sessionTranscript.length;
-            
+
             const sessionData: InterviewSession = {
                 date: new Date().toISOString(),
                 type: `${interviewConfig!.type} - ${interviewConfig!.role}`,
@@ -408,9 +528,10 @@ const CandidateInterviewPage: React.FC = () => {
                 averageScore: Math.round(averageScore),
                 config: interviewConfig!,
                 transcript: sessionTranscript,
-                summary: summaryData
+                summary: summaryData,
+                videoUrl
             };
-            
+
             // Save interview session to database and update app context so dashboard shows progress immediately
             try {
                 await assessmentService.saveInterviewSession(sessionData);
@@ -431,7 +552,7 @@ const CandidateInterviewPage: React.FC = () => {
             setPageStage('summary');
         } catch (err) {
             setError("Could not generate interview summary.");
-             setInterviewStage('finished');
+            setInterviewStage('finished');
         }
     }, [sessionTranscript, interviewConfig, sessionDuration]);
 
@@ -463,10 +584,10 @@ const CandidateInterviewPage: React.FC = () => {
             }
         };
 
-        if (interviewStage === 'generating_questions') {
+        if (interviewStage === 'generating_questions' && pageStage === 'interview') {
             fetchNextQuestion();
         }
-    }, [interviewStage, questions.length, interviewConfig, resumeData, sessionTranscript]);
+    }, [interviewStage, pageStage, questions.length, interviewConfig, resumeData, sessionTranscript]);
 
     useEffect(() => {
         if (interviewStage === 'asking' && questions.length > 0) {
@@ -533,7 +654,7 @@ const CandidateInterviewPage: React.FC = () => {
                 console.log("Speech recognition aborted, likely a normal state transition.");
                 return;
             }
-            
+
             if (event.error === 'no-speech') {
                 if (noSpeechRetryCount < 2) { // Allow 2 retries (total 3 attempts)
                     setNoSpeechRetryCount(count => count + 1);
@@ -541,7 +662,7 @@ const CandidateInterviewPage: React.FC = () => {
                 } else {
                     // Max retries reached, submit empty answer and move on
                     submissionTriggeredRef.current = true;
-                    handleAnswerSubmission("I did not provide an answer.", 0); 
+                    handleAnswerSubmission("I did not provide an answer.", 0);
                 }
                 return;
             }
@@ -559,35 +680,40 @@ const CandidateInterviewPage: React.FC = () => {
                 }, 1500); // Wait 1.5 seconds before retrying
                 return;
             }
-            
+
             let userMessage = `An unexpected error occurred: ${event.error}.`;
-             if (event.error === 'network') {
+            if (event.error === 'network') {
                 userMessage = "A network error occurred with the speech service. Please check your connection.";
-             } else if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                 userMessage = "Microphone access was denied. Please enable it in your browser settings to continue.";
-             }
-             setError(userMessage);
+            } else if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                userMessage = "Microphone access was denied. Please enable it in your browser settings to continue.";
+            }
+            setError(userMessage);
         };
         recognition.onresult = (event) => {
             if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
-            let finalTranscript = '';
+            let completeTranscript = '';
             let isFinal = false;
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                finalTranscript += event.results[i][0].transcript;
-                if(event.results[i].isFinal) isFinal = true;
+
+            for (let i = 0; i < event.results.length; ++i) {
+                const segment = event.results[i][0].transcript.trim();
+                if (segment) {
+                    completeTranscript += (completeTranscript ? ' ' : '') + segment;
+                }
+                if (event.results[i].isFinal) isFinal = true;
             }
-            setTranscript(finalTranscript);
+            // Correct phonetic misrecognitions (e.g. "nocches" → "Node.js")
+            setTranscript(correctTranscript(completeTranscript));
 
             if (isFinal) {
-                 silenceTimeoutRef.current = setTimeout(() => {
-                     recognitionRef.current?.stop();
-                 }, 5000) as unknown as number;
+                silenceTimeoutRef.current = setTimeout(() => {
+                    recognitionRef.current?.stop();
+                }, 5000) as unknown as number;
             }
         };
-        
+
         return () => {
             speechSynthesis.cancel();
-            if(recognitionRef.current) {
+            if (recognitionRef.current) {
                 recognitionRef.current.onend = null;
                 recognitionRef.current.abort();
             }
@@ -595,7 +721,7 @@ const CandidateInterviewPage: React.FC = () => {
             if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
         };
     }, [stopTimer, handleAnswerSubmission, noSpeechRetryCount]);
-    
+
     useEffect(() => {
         if (interviewStage === 'listening') {
             recognitionRef.current?.start();
@@ -603,7 +729,7 @@ const CandidateInterviewPage: React.FC = () => {
             recognitionRef.current.stop();
         }
     }, [interviewStage]);
-    
+
     useEffect(() => {
         return () => {
             userStreamRef.current?.getTracks().forEach(track => track.stop());
@@ -611,16 +737,28 @@ const CandidateInterviewPage: React.FC = () => {
     }, []);
 
     const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
-    
+
     // ---- Render Logic ----
     if (pageStage === 'setup') {
-        return <div className="p-4 sm:p-6 md:p-8"><InterviewSetup onStart={handleStartSetup} jobRole={careerRoadmap?.targetRole || 'Software Engineer'}/></div>;
+        if (!resumeData || !resumeData.skills || resumeData.skills.length === 0) {
+            return (
+                <div className="flex flex-col items-center justify-center p-8 space-y-6 mt-12 mb-12 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 max-w-2xl mx-auto">
+                    <AlertTriangle size={64} className="text-yellow-500" />
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-700 pb-4 w-full text-center">Resume Analysis Required</h2>
+                    <p className="text-slate-600 dark:text-slate-300 text-center max-w-md">Before starting an interview session, please upload and analyze your resume on the dashboard. This allows Alexis to tailor the interview precisely to your background and skills.</p>
+                    <button onClick={() => navigate('/candidate/dashboard')} className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition w-full max-w-xs shadow-md">
+                        Go to Dashboard
+                    </button>
+                </div>
+            );
+        }
+        return <div className="p-4 sm:p-6 md:p-8"><InterviewSetup onStart={handleStartSetup} jobRole={careerRoadmap?.targetRole || 'Software Engineer'} currentAvg={totalAvg} /></div>;
     }
-    
+
     if (pageStage === 'readiness_check' && interviewConfig) {
-        return <div className="flex items-center justify-center min-h-full"><ReadinessCheck config={interviewConfig} onContinue={handleStartInterview}/></div>;
+        return <div className="flex items-center justify-center min-h-full"><ReadinessCheck config={interviewConfig} onContinue={handleStartInterview} /></div>;
     }
-    
+
     if (pageStage === 'summary' && finalSession) {
         const handleRestart = () => {
             setPageStage('setup');
@@ -649,22 +787,27 @@ const CandidateInterviewPage: React.FC = () => {
 
     if (pageStage !== 'interview' || !interviewConfig) {
         if (!resumeData) return <PageSpinner message="Please analyze your resume on the dashboard first." />;
-        return <PageSpinner message="Loading interview..."/>;
+        return <PageSpinner message="Loading interview..." />;
     }
-    
+
     const currentQuestion = questions[questions.length - 1]?.question;
     const interviewInProgress = !['generating_summary', 'finished'].includes(interviewStage);
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
             {/* Header */}
-            <div className="flex-shrink-0 bg-white p-4 border-b border-slate-200 flex flex-wrap justify-between items-center gap-2">
-                <div>
+            <div className="flex-shrink-0 bg-white dark:bg-slate-800 p-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap justify-between items-center gap-2">
+                <div className="text-slate-900 dark:text-white">
                     <h2 className="font-bold text-md sm:text-lg">{interviewConfig.role} Interview</h2>
-                    <p className="text-sm text-slate-500">{interviewStage === 'generating_questions' ? 'Preparing next question...' : `Question ${questions.length} of ${TOTAL_QUESTIONS}`}</p>
+                    <div className="flex items-center gap-2">
+                        <p className="text-sm text-slate-500 dark:text-slate-400">{interviewStage === 'generating_questions' ? 'Preparing next question...' : `Question ${questions.length} of ${TOTAL_QUESTIONS}`}</p>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${currentLevel.bg} ${currentLevel.color} ${currentLevel.border} uppercase shadow-sm`}>
+                            {currentLevel.name}
+                        </span>
+                    </div>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4">
-                    <div className="flex items-center gap-2 font-mono text-slate-600 bg-slate-100 px-3 py-1.5 rounded-md text-sm">
+                    <div className="flex items-center gap-2 font-mono text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-3 py-1.5 rounded-md text-sm">
                         <Timer size={16} />
                         <span>{formatTime(timer)}</span>
                     </div>
@@ -673,59 +816,59 @@ const CandidateInterviewPage: React.FC = () => {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 grid grid-cols-12 gap-4 sm:gap-6 p-4 sm:p-6 bg-slate-100 overflow-y-auto">
+            <div className="flex-1 grid grid-cols-12 gap-4 sm:gap-6 p-4 sm:p-6 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
                 {/* Left Panel: AI & Question */}
                 <div className="col-span-12 lg:col-span-8 space-y-4">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 relative">
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 relative">
                         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-stretch">
                             {/* Question Area */}
                             <div className="md:col-span-3 flex flex-col justify-center relative min-h-[200px] md:min-h-0">
-                                <div className="absolute top-0 left-0 flex items-center gap-2 text-sm font-semibold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full z-10">
-                                    <Bot size={16}/> Alexis is asking...
+                                <div className="absolute top-0 left-0 flex items-center gap-2 text-sm font-semibold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full z-10">
+                                    <Bot size={16} /> Alexis is asking... <span className="opacity-60 font-normal ml-1">({currentLevel.name} Level)</span>
                                 </div>
-                                
+
                                 <div className="flex items-center justify-center h-full">
                                     {interviewStage === 'generating_questions' && !error && <Spinner />}
 
                                     {interviewStage !== 'generating_questions' && (
-                                            <p className="text-xl sm:text-2xl font-semibold text-slate-800 text-center px-4 pt-8 md:pt-0">{currentQuestion}</p>
+                                        <p className="text-xl sm:text-2xl font-semibold text-slate-800 dark:text-white text-center px-4 pt-8 md:pt-0">{currentQuestion}</p>
                                     )}
                                 </div>
                             </div>
                             {/* Notes Area */}
-                            <div className="md:col-span-2 flex flex-col bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                <h3 className="font-semibold text-sm flex items-center mb-2 text-slate-700">
-                                    <BookCopy size={16} className="mr-2"/> Your Notes
+                            <div className="md:col-span-2 flex flex-col bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                <h3 className="font-semibold text-sm flex items-center mb-2 text-slate-700 dark:text-slate-300">
+                                    <BookCopy size={16} className="mr-2" /> Your Notes
                                 </h3>
                                 <textarea
                                     value={notes}
                                     onChange={(e) => setNotes(e.target.value)}
                                     placeholder="Jot down key points here..."
-                                    className="w-full flex-1 p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm resize-none"
+                                    className="w-full flex-1 p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm text-slate-900 dark:text-slate-100 resize-none"
                                     disabled={!['listening', 'asking'].includes(interviewStage)}
                                 />
                             </div>
                         </div>
-                        
+
                         {error && (
-                            <div className="absolute bottom-4 left-4 right-4 text-sm text-red-600 bg-red-50 p-3 rounded-md flex items-center z-10">
+                            <div className="absolute bottom-4 left-4 right-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-md flex items-center z-10 border border-red-100 dark:border-red-800">
                                 <AlertTriangle size={16} className="mr-2" />
                                 {error}
                             </div>
                         )}
-                        
+
                         {['analyzing', 'transitioning', 'generating_summary', 're_asking'].includes(interviewStage) && (
-                            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center space-y-2 animate-fade-in-fast rounded-xl z-20">
-                                {interviewStage === 'analyzing' ? <><Spinner /><p className="font-semibold text-slate-600">Analyzing your answer...</p></> : null}
-                                {interviewStage === 'transitioning' ? <><CheckCircle size={32} className="text-green-500"/><p className="font-semibold text-slate-600">Answer saved. Next question coming up...</p></> : null}
-                                {interviewStage === 'generating_summary' ? <><Spinner /><p className="font-semibold text-slate-600">Generating your interview report...</p></> : null}
-                                {interviewStage === 're_asking' ? <><Mic size={32} className="text-indigo-500" /><p className="font-semibold text-slate-600">I didn't hear you. Let's try again.</p></> : null}
+                            <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center space-y-2 animate-fade-in-fast rounded-xl z-20">
+                                {interviewStage === 'analyzing' ? <><Spinner /><p className="font-semibold text-slate-600 dark:text-slate-300">Analyzing your answer...</p></> : null}
+                                {interviewStage === 'transitioning' ? <><CheckCircle size={32} className="text-green-500" /><p className="font-semibold text-slate-600 dark:text-slate-300">Answer saved. Next question coming up...</p></> : null}
+                                {interviewStage === 'generating_summary' ? <><Spinner /><p className="font-semibold text-slate-600 dark:text-slate-300">Generating your interview report...</p></> : null}
+                                {interviewStage === 're_asking' ? <><Mic size={32} className="text-indigo-500" /><p className="font-semibold text-slate-600 dark:text-slate-300">I didn't hear you. Let's try again.</p></> : null}
                             </div>
                         )}
                     </div>
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <h3 className="font-semibold flex items-center mb-2"><FileText size={18} className="mr-2"/> Your Live Transcript</h3>
-                        <p className="text-slate-600 italic min-h-[4em]">{transcript || "Your answer will appear here as you speak..."}</p>
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <h3 className="font-semibold flex items-center mb-2 dark:text-white"><FileText size={18} className="mr-2" /> Your Live Transcript</h3>
+                        <p className="text-slate-600 dark:text-slate-400 italic min-h-[4em]">{transcript || "Your answer will appear here as you speak..."}</p>
                     </div>
                 </div>
                 {/* Right Panel: Video & Controls */}
@@ -733,34 +876,34 @@ const CandidateInterviewPage: React.FC = () => {
                     <div className="aspect-video bg-slate-800 rounded-xl overflow-hidden relative shadow-lg">
                         <video ref={userVideoRef} autoPlay muted className="w-full h-full object-cover"></video>
                         <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/50 to-transparent flex justify-center gap-2">
-                             <button className="p-2 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30"><VideoOff size={18}/></button>
-                             <button className="p-2 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30"><Settings size={18}/></button>
+                            <button className="p-2 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30"><VideoOff size={18} /></button>
+                            <button className="p-2 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30"><Settings size={18} /></button>
                         </div>
-                    </div>
-                    
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 text-center">
-                         <div className="flex items-center justify-center gap-2 text-sm font-semibold text-green-700">
-                            <Smile size={16}/> Live Facial Analysis: Active
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1">Simulated feedback on expression and engagement.</p>
                     </div>
 
-                    <div className={`p-4 rounded-xl text-center transition-all duration-300 ${interviewStage === 'listening' ? 'bg-red-500 text-white shadow-red-300 shadow-lg' : 'bg-white'}`}>
-                        {interviewStage === 'listening' 
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 text-center">
+                        <div className="flex items-center justify-center gap-2 text-sm font-semibold text-green-700 dark:text-green-400">
+                            <Smile size={16} /> Live Facial Analysis: Active
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Simulated feedback on expression and engagement.</p>
+                    </div>
+
+                    <div className={`p-4 rounded-xl text-center transition-all duration-300 ${interviewStage === 'listening' ? 'bg-red-500 text-white shadow-red-300 dark:shadow-red-900/40 shadow-lg' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'}`}>
+                        {interviewStage === 'listening'
                             ? <p className="font-bold text-lg animate-pulse">RECORDING</p>
-                            : <p className="font-semibold text-slate-500">{interviewStage === 'asking' ? 'Prepare to speak...' : 'Not recording'}</p>
+                            : <p className="font-semibold text-slate-500 dark:text-slate-400">{interviewStage === 'asking' ? 'Prepare to speak...' : 'Not recording'}</p>
                         }
                     </div>
 
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                        <h3 className="font-semibold text-sm flex items-center mb-2"><BookCopy size={16} className="mr-2 text-indigo-500"/> STAR Method Tip</h3>
-                        <p className="text-xs text-slate-500">For behavioral questions, structure your answer using STAR: <br/><strong>S</strong>ituation, <strong>T</strong>ask, <strong>A</strong>ction, <strong>R</strong>esult.</p>
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <h3 className="font-semibold text-sm flex items-center mb-2 text-indigo-500 dark:text-indigo-400"><BookCopy size={16} className="mr-2" /> STAR Method Tip</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">For behavioral questions, structure your answer using STAR: <br /><strong>S</strong>ituation, <strong>T</strong>ask, <strong>A</strong>ction, <strong>R</strong>esult.</p>
                     </div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                        <h3 className="font-semibold text-sm flex items-center mb-2"><BarChart2 size={16} className="mr-2 text-indigo-500"/> Interview Progress</h3>
-                         <div className="flex justify-between text-sm font-medium mb-1"><span className="text-slate-700">Questions Answered</span><span className="text-slate-500">{questions.length > 0 ? questions.length - 1 : 0} / {TOTAL_QUESTIONS}</span></div>
-                         <div className="w-full bg-slate-200 rounded-full h-2.5">
-                            <div className="bg-indigo-600 h-2.5 rounded-full" style={{width: `${((questions.length > 0 ? questions.length -1 : 0) / TOTAL_QUESTIONS) * 100}%`}}></div>
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <h3 className="font-semibold text-sm flex items-center mb-2 text-indigo-500 dark:text-indigo-400"><BarChart2 size={16} className="mr-2" /> Interview Progress</h3>
+                        <div className="flex justify-between text-sm font-medium mb-1"><span className="text-slate-700 dark:text-slate-300">Questions Answered</span><span className="text-slate-500 dark:text-slate-400">{questions.length > 0 ? questions.length - 1 : 0} / {TOTAL_QUESTIONS}</span></div>
+                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
+                            <div className="bg-indigo-600 dark:bg-indigo-500 h-2.5 rounded-full" style={{ width: `${((questions.length > 0 ? questions.length - 1 : 0) / TOTAL_QUESTIONS) * 100}%` }}></div>
                         </div>
                     </div>
 

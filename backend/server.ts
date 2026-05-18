@@ -12,6 +12,7 @@ import authRoutes from './routes/authRoutes';
 import candidateRoutes from './routes/candidateRoutes';
 import recruiterRoutes from './routes/recruiterRoutes';
 import assessmentRoutes from './routes/assessmentRoutes';
+import aiRoutes from './routes/aiRoutes';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -54,6 +55,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/candidate', candidateRoutes);
 app.use('/api/recruiter', recruiterRoutes);
 app.use('/api/assessments', assessmentRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 404 handler
 app.use((req, res) => {

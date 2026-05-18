@@ -1,0 +1,1 @@
+﻿backend/services/aiService.ts(2,36): error TS2307: Cannot find module '@google/generative-ai' or its corresponding type declarations.
