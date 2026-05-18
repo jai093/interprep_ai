@@ -4,6 +4,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/test-raw",
+      "destination": "/api/test-raw"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/handler?path=:path*"
     },
