@@ -4,38 +4,6 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/test-express",
-      "destination": "/api/test-express"
-    },
-    {
-      "source": "/api/test-mongoose",
-      "destination": "/api/test-mongoose"
-    },
-    {
-      "source": "/api/test-dotenv",
-      "destination": "/api/test-dotenv"
-    },
-    {
-      "source": "/api/test-db",
-      "destination": "/api/test-db"
-    },
-    {
-      "source": "/api/test-auth-route",
-      "destination": "/api/test-auth-route"
-    },
-    {
-      "source": "/api/test-routes",
-      "destination": "/api/test-routes"
-    },
-    {
-      "source": "/api/test-imports",
-      "destination": "/api/test-imports"
-    },
-    {
-      "source": "/api/test-raw",
-      "destination": "/api/test-raw"
-    },
-    {
       "source": "/api/:path*",
       "destination": "/api/handler?path=:path*"
     },
