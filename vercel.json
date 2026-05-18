@@ -4,6 +4,18 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/test-db",
+      "destination": "/api/test-db"
+    },
+    {
+      "source": "/api/test-auth-route",
+      "destination": "/api/test-auth-route"
+    },
+    {
+      "source": "/api/test-routes",
+      "destination": "/api/test-routes"
+    },
+    {
       "source": "/api/test-imports",
       "destination": "/api/test-imports"
     },
