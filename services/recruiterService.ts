@@ -37,4 +37,8 @@ export const recruiterService = {
   async getAssessmentResult(resultId: string): Promise<AssessmentResult> {
     return apiClient.request(`/recruiter/results/${resultId}`, 'GET');
   },
+
+  async updateAssessmentResultStatus(resultId: string, status: string, reason?: string): Promise<{ message: string; result: AssessmentResult }> {
+    return apiClient.request(`/recruiter/results/${resultId}/status`, 'PUT', { status, reason });
+  },
 };

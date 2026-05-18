@@ -8,6 +8,7 @@ export interface IAssessmentResult extends Document {
   candidateEmail: string;
   candidateUser?: Types.ObjectId;
   session: InterviewSession;
+  status: 'Pending' | 'Shortlisted' | 'Rejected' | 'Hold';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +36,11 @@ const AssessmentResultSchema = new Schema<IAssessmentResult>(
     session: {
       type: EmbeddedInterviewSessionSchema,
       required: true,
+    },
+    status: {
+      type: String,
+      enum: ['Pending', 'Shortlisted', 'Rejected', 'Hold'],
+      default: 'Pending',
     },
   },
   {

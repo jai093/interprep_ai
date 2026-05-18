@@ -195,12 +195,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const settings = await recruiterService.getSettings();
             const assessmentsList = await recruiterService.getAssessments();
 
+            const resultsList = await recruiterService.getAssessmentResults().catch(() => []);
+
             setRecruiterProfile(profile);
             setRecruiterSettings(settings);
             
             const backendIds = new Set(assessmentsList.map((a: Assessment) => a.id));
             const mockToAdd = assessmentsDB.filter(a => !backendIds.has(a.id));
             setAssessments([...assessmentsList, ...mockToAdd]);
+
+            const backendResultIds = new Set(resultsList.map((r: AssessmentResult) => r.id));
+            const mockResultsToAdd = assessmentResultsDB.filter(r => !backendResultIds.has(r.id));
+            setAssessmentResults([...resultsList, ...mockResultsToAdd]);
           } catch (err) {
             console.error('Failed to load recruiter data on mount:', err);
             const data = recruiterDataDB.get(userWithRole.email);
@@ -320,6 +326,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const profile = await recruiterService.getProfile();
           const settings = await recruiterService.getSettings();
           const assessmentsList = await recruiterService.getAssessments();
+          const resultsList = await recruiterService.getAssessmentResults().catch(() => []);
 
           setRecruiterProfile(profile);
           setRecruiterSettings(settings);
@@ -328,6 +335,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const backendIds = new Set(assessmentsList.map((a: Assessment) => a.id));
           const mockToAdd = assessmentsDB.filter(a => !backendIds.has(a.id));
           setAssessments([...assessmentsList, ...mockToAdd]);
+
+          const backendResultIds = new Set(resultsList.map((r: AssessmentResult) => r.id));
+          const mockResultsToAdd = assessmentResultsDB.filter(r => !backendResultIds.has(r.id));
+          setAssessmentResults([...resultsList, ...mockResultsToAdd]);
         } catch (err) {
           console.error('Failed to load recruiter data:', err);
           // Fallback to mock data if backend fails
@@ -569,26 +580,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateAssessmentResultStatus = async (resultId: string, status: 'Pending' | 'Shortlisted' | 'Rejected' | 'Hold', reason?: string) => {
     setLoading(true);
     try {
-      // In a real app, this would be an API call:
-      // await recruiterService.updateResultStatus(resultId, status, reason);
-
-      // Mock Email Notification
-      const result = assessmentResultsDB.find(r => r.id === resultId);
-      if (result) {
-        console.log(`[MOCK EMAIL SERVICE] Sending email to ${result.candidateEmail}`);
-        console.log(`Subject: Update on your application`);
-        console.log(`Body: Your status has been updated to: ${status}.`);
-        if (reason) console.log(`Reason: ${reason}`);
+      if (resultId.match(/^[0-9a-fA-F]{24}$/)) {
+        await recruiterService.updateAssessmentResultStatus(resultId, status, reason);
+        const resultsList = await recruiterService.getAssessmentResults().catch(() => []);
+        const backendResultIds = new Set(resultsList.map((r: AssessmentResult) => r.id));
+        const mockResultsToAdd = assessmentResultsDB.filter(r => !backendResultIds.has(r.id));
+        setAssessmentResults([...resultsList, ...mockResultsToAdd]);
+      } else {
+        const updatedResults = assessmentResultsDB.map(r => r.id === resultId ? { ...r, status } : r);
+        assessmentResultsDB = updatedResults;
+        saveToStorage('assessmentResultsDB', assessmentResultsDB);
+        setAssessmentResults(updatedResults);
       }
-
-      // Update Local State
+    } catch (err) {
+      console.error("Failed to update status on backend, falling back to local storage:", err);
       const updatedResults = assessmentResultsDB.map(r => r.id === resultId ? { ...r, status } : r);
       assessmentResultsDB = updatedResults;
       saveToStorage('assessmentResultsDB', assessmentResultsDB);
       setAssessmentResults(updatedResults);
-
-    } catch (err) {
-      console.error("Failed to update status", err);
     } finally {
       setLoading(false);
     }

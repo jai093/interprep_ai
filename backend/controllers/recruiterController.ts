@@ -228,7 +228,18 @@ export const getAssessmentResults = async (req: Request, res: Response, next: Ne
     // Filter out results where the assessment was not found (not created by this recruiter)
     const filteredResults = results.filter((result) => result.assessment);
 
-    res.status(200).json(filteredResults);
+    const serialized = filteredResults.map(doc => ({
+      id: doc._id.toString(),
+      assessmentId: (doc.assessment as any)._id.toString(),
+      candidateName: doc.candidateName,
+      candidateEmail: doc.candidateEmail,
+      candidateUser: doc.candidateUser ? doc.candidateUser.toString() : undefined,
+      session: doc.session,
+      status: doc.status || 'Pending',
+      completedAt: doc.createdAt.toISOString()
+    }));
+
+    res.status(200).json(serialized);
   } catch (error) {
     next(error);
   }
@@ -254,7 +265,84 @@ export const getAssessmentResult = async (req: Request, res: Response, next: Nex
       return;
     }
 
-    res.status(200).json(result);
+    const serialized = {
+      id: result._id.toString(),
+      assessmentId: (result.assessment as any)._id.toString(),
+      candidateName: result.candidateName,
+      candidateEmail: result.candidateEmail,
+      candidateUser: result.candidateUser ? result.candidateUser.toString() : undefined,
+      session: result.session,
+      status: result.status || 'Pending',
+      completedAt: result.createdAt.toISOString()
+    };
+
+    res.status(200).json(serialized);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateAssessmentResultStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { resultId } = req.params;
+    const { status, reason } = req.body;
+
+    if (!['Pending', 'Shortlisted', 'Hold', 'Rejected'].includes(status)) {
+      res.status(400).json({ error: 'Invalid status value' });
+      return;
+    }
+
+    const result = await AssessmentResult.findById(resultId).populate('assessment');
+    if (!result) {
+      res.status(404).json({ error: 'Assessment result not found' });
+      return;
+    }
+
+    if ((result.assessment as any).createdBy !== req.user.email) {
+      res.status(403).json({ error: 'Not authorized to update this result' });
+      return;
+    }
+
+    result.status = status;
+    await result.save();
+
+    if (result.candidateEmail) {
+      try {
+        const { sendCandidateReportEmail } = await import('../services/emailService');
+        await sendCandidateReportEmail(
+          result.candidateEmail,
+          (result.assessment as any).jobRole,
+          `
+          <h1>Application Update</h1>
+          <p>Hi ${result.candidateName},</p>
+          <p>Your application status for the <strong>${(result.assessment as any).jobRole}</strong> position has been updated to: <strong>${status}</strong>.</p>
+          ${reason ? `<p><strong>Feedback:</strong> ${reason}</p>` : ''}
+          <br/>
+          <p>Best regards,<br/>The Hiring Team</p>
+          `
+        );
+      } catch (emailErr) {
+        console.error("Failed to send candidate update email:", emailErr);
+      }
+    }
+
+    res.status(200).json({
+      message: 'Status updated successfully',
+      result: {
+        id: result._id.toString(),
+        assessmentId: (result.assessment as any)._id.toString(),
+        candidateName: result.candidateName,
+        candidateEmail: result.candidateEmail,
+        session: result.session,
+        status: result.status,
+        completedAt: result.createdAt.toISOString()
+      }
+    });
   } catch (error) {
     next(error);
   }

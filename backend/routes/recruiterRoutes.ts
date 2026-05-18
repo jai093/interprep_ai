@@ -9,6 +9,7 @@ import {
   deleteAssessment,
   getAssessmentResults,
   getAssessmentResult,
+  updateAssessmentResultStatus,
 } from '../controllers/recruiterController';
 import { authenticateToken, authorizeRole } from '../middleware/auth';
 
@@ -33,5 +34,6 @@ router.delete('/assessments/:assessmentId', deleteAssessment);
 // Assessment results routes
 router.get('/results', getAssessmentResults);
 router.get('/results/:resultId', getAssessmentResult);
+router.put('/results/:resultId/status', updateAssessmentResultStatus);
 
 export default router;
