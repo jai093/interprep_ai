@@ -75,7 +75,7 @@ export const submitAssessmentResult = async (req: Request, res: Response, next: 
             }
 
             // --- Email Notification ---
-            const { sendRecruiterReportEmail } = await import('../services/emailService');
+            const { sendRecruiterReportEmail, sendCandidateReportEmail } = await import('../services/emailService');
             // Assuming the recruiter's email is in assessment.createdBy (which is just a string email in the model)
             if (assessment.createdBy && assessment.createdBy.includes('@')) {
                 await sendRecruiterReportEmail(
@@ -93,7 +93,24 @@ export const submitAssessmentResult = async (req: Request, res: Response, next: 
                     <br/>
                     <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/recruiter/dashboard">View Full Report</a>
                     `
-                ).catch(err => console.error("Failed to send email:", err));
+                ).catch(err => console.error("Failed to send recruiter email:", err));
+            }
+
+            if (candidateEmail && candidateEmail.includes('@')) {
+                await sendCandidateReportEmail(
+                    candidateEmail,
+                    assessment.jobRole,
+                    `
+                    <h1>Your Assessment Report</h1>
+                    <p><strong>Role:</strong> ${assessment.jobRole}</p>
+                    <p><strong>Score:</strong> ${session.averageScore}%</p>
+                    <hr/>
+                    <h3>Overall Feedback</h3>
+                    <p>${report.candidateReport}</p>
+                    <br/>
+                    <p>You can view your detailed feedback on your Candidate Dashboard.</p>
+                    `
+                ).catch(err => console.error("Failed to send candidate email:", err));
             }
 
         } catch (error) {

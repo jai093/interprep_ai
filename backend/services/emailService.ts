@@ -26,3 +26,11 @@ export const sendRecruiterReportEmail = async (recruiterEmail: string, candidate
         html: reportHtml
     });
 };
+
+export const sendCandidateReportEmail = async (candidateEmail: string, role: string, reportHtml: string) => {
+    return sendEmail({
+        to: candidateEmail,
+        subject: `Your Assessment Report - ${role}`,
+        html: reportHtml
+    });
+};

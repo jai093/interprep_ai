@@ -479,8 +479,8 @@ const AssessmentPage: React.FC = () => {
     useEffect(() => {
         if (!isLoading) {
             if (!user) {
-                // Not logged in, redirect to login page, preserving the destination
-                navigate('/login', { state: { from: location }, replace: true });
+                // Not logged in, redirect to signup page, preserving the destination
+                navigate('/signup', { state: { from: location }, replace: true });
                 return;
             }
 
@@ -490,19 +490,10 @@ const AssessmentPage: React.FC = () => {
                 return;
             }
 
-            // User is a logged-in candidate, proceed with assessment setup
-            setCandidateName(user.name);
-            setCandidateEmail(user.email);
-            const foundAssessment = assessments.find(a => a.id === assessmentId);
-            if (foundAssessment) {
-                setAssessment(foundAssessment);
-                setPageStage('instructions'); // Skip info_collect and go to instructions
-            } else {
-                setError("Assessment not found or invalid link.");
-                setPageStage('error');
-            }
+            // User is a logged-in candidate, immediately redirect to high-fidelity interview page
+            navigate(`/candidate/interview?assessmentId=${assessmentId}`, { replace: true });
         }
-    }, [isLoading, user, navigate, location, assessments, assessmentId]);
+    }, [isLoading, user, navigate, location, assessmentId]);
 
     useEffect(() => {
         // Cleanup stream when component unmounts

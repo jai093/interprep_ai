@@ -117,7 +117,7 @@ const SignupPage: React.FC = () => {
            <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
             Already have an account?{' '}
             {/* FIX: Use the Link component directly. */}
-            <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+            <Link to="/login" state={{ from: location.state?.from }} className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
               Log in
             </Link>
           </p>

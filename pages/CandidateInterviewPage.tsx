@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Replaced `useHistory` with `useNavigate` for react-router-dom v6 compatibility.
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { generateNextQuestion, getInterviewFeedback, generateInterviewSummary, generateTTSAudio } from '../services/aiService';
 import { assessmentService } from '../services/assessmentService';
@@ -18,7 +18,7 @@ import { correctTranscript } from '../utils/transcriptCorrection';
 type PageStage = 'setup' | 'readiness_check' | 'interview' | 'summary';
 type InterviewSubStage = 'generating_questions' | 'asking' | 'listening' | 're_asking' | 'analyzing' | 'transitioning' | 'generating_summary' | 'finished';
 
-const TOTAL_QUESTIONS = 5;
+const DEFAULT_TOTAL_QUESTIONS = 5;
 
 const interviewTypeDetails = {
     'Behavioral': {
@@ -86,9 +86,16 @@ const getLevel = (avg: number) => {
     };
 };
 
-const InterviewSetup: React.FC<{ onStart: (config: InterviewConfig) => void, jobRole: string, currentAvg: number }> = ({ onStart, jobRole, currentAvg }) => {
+const InterviewSetup: React.FC<{ 
+    onStart: (config: InterviewConfig) => void, 
+    jobRole: string, 
+    currentAvg: number,
+    lockedConfig?: InterviewConfig | null
+}> = ({ onStart, jobRole, currentAvg, lockedConfig }) => {
     const level = getLevel(currentAvg);
-    const [config, setConfig] = useState<InterviewConfig>({ type: 'Behavioral', difficulty: 'Medium', persona: 'Neutral', role: jobRole });
+    const [config, setConfig] = useState<InterviewConfig>(
+        lockedConfig || { type: 'Behavioral', difficulty: 'Medium', persona: 'Neutral', role: jobRole }
+    );
     const [devices, setDevices] = useState<{ cameras: MediaDeviceInfo[], mics: MediaDeviceInfo[] }>({ cameras: [], mics: [] });
     const [stream, setStream] = useState<MediaStream | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -129,9 +136,22 @@ const InterviewSetup: React.FC<{ onStart: (config: InterviewConfig) => void, job
     return (
         <div className="w-full max-w-5xl mx-auto space-y-8 animate-fade-in text-slate-900 dark:text-slate-100">
             <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">Practice Interview</h1>
-                <p className="text-slate-600 dark:text-slate-400 mt-1">Configure your interview session to get started.</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+                    {lockedConfig ? "Recruiter Assessment Interview" : "Practice Interview"}
+                </h1>
+                <p className="text-slate-600 dark:text-slate-400 mt-1">
+                    {lockedConfig ? "Verify your camera and mic setup to begin your assessment." : "Configure your interview session to get started."}
+                </p>
             </div>
+            {lockedConfig && (
+                <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 flex items-center gap-3">
+                    <Bot size={24} className="text-indigo-600 dark:text-indigo-400" />
+                    <div>
+                        <h3 className="font-semibold text-indigo-900 dark:text-indigo-200">Recruiter Assessment Mode</h3>
+                        <p className="text-xs text-indigo-700 dark:text-indigo-300">You are completing a specialized assessment for this role. The configurations have been pre-set by the recruiter.</p>
+                    </div>
+                </div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="space-y-6">
                     {/* Interview Type */}
@@ -139,7 +159,14 @@ const InterviewSetup: React.FC<{ onStart: (config: InterviewConfig) => void, job
                         <h2 className="text-xl font-semibold mb-4 dark:text-white">Select Interview Type</h2>
                         <div className="flex flex-col sm:flex-row gap-2">
                             {(Object.keys(interviewTypeDetails) as Array<keyof typeof interviewTypeDetails>).map(type => (
-                                <button key={type} onClick={() => setConfig(c => ({ ...c, type }))} className={`px-4 py-2 rounded-lg font-semibold transition w-full ${config.type === type ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>{type}</button>
+                                <button 
+                                    key={type} 
+                                    disabled={!!lockedConfig}
+                                    onClick={() => setConfig(c => ({ ...c, type }))} 
+                                    className={`px-4 py-2 rounded-lg font-semibold transition w-full ${config.type === type ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-80'}`}
+                                >
+                                    {type}
+                                </button>
                             ))}
                         </div>
                         <div className="mt-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg text-sm border border-transparent dark:border-slate-700">
@@ -155,30 +182,57 @@ const InterviewSetup: React.FC<{ onStart: (config: InterviewConfig) => void, job
 
                     {/* Customization */}
                     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                        <h2 className="text-xl font-semibold mb-4 dark:text-white">Interview Customization</h2>
+                        <h2 className="text-xl font-semibold mb-4 dark:text-white">
+                            {lockedConfig ? "Assessment Details" : "Interview Customization"}
+                        </h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Difficulty Level</label>
-                                <select value={config.difficulty} onChange={e => setConfig(c => ({ ...c, difficulty: e.target.value as any }))} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none">
-                                    <option>Easy</option><option>Medium</option><option>Hard</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Your Progression Level</label>
-                                <div className={`p-2 rounded-md border ${level.bg} ${level.border} ${level.color} font-bold text-center text-sm shadow-sm`}>
-                                    {level.name}
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Interviewer Persona</label>
-                                <select value={config.persona} onChange={e => setConfig(c => ({ ...c, persona: e.target.value as any }))} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none">
-                                    <option>Neutral</option><option>Friendly</option><option>Strict</option>
-                                </select>
-                            </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Job Role / Industry</label>
-                                <input type="text" value={config.role} onChange={e => setConfig(c => ({ ...c, role: e.target.value }))} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" />
-                            </div>
+                            {lockedConfig ? (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Difficulty Level</label>
+                                        <div className="p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md font-semibold text-slate-800 dark:text-slate-200">
+                                            {config.difficulty}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Interviewer Persona</label>
+                                        <div className="p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md font-semibold text-slate-800 dark:text-slate-200">
+                                            {config.persona}
+                                        </div>
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Assessed Job Role</label>
+                                        <div className="p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md font-semibold text-slate-800 dark:text-slate-200">
+                                            {config.role}
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Difficulty Level</label>
+                                        <select value={config.difficulty} onChange={e => setConfig(c => ({ ...c, difficulty: e.target.value as any }))} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none">
+                                            <option>Easy</option><option>Medium</option><option>Hard</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Your Progression Level</label>
+                                        <div className={`p-2 rounded-md border ${level.bg} ${level.border} ${level.color} font-bold text-center text-sm shadow-sm`}>
+                                            {level.name}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Interviewer Persona</label>
+                                        <select value={config.persona} onChange={e => setConfig(c => ({ ...c, persona: e.target.value as any }))} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none">
+                                            <option>Neutral</option><option>Friendly</option><option>Strict</option>
+                                        </select>
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Job Role / Industry</label>
+                                        <input type="text" value={config.role} onChange={e => setConfig(c => ({ ...c, role: e.target.value }))} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" />
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -229,7 +283,7 @@ const ReadinessCheck: React.FC<{ config: InterviewConfig, onContinue: () => void
 );
 
 const CandidateInterviewPage: React.FC = () => {
-    const { resumeData, careerRoadmap, addInterviewSession, userProfile, interviewHistory } = useAppContext();
+    const { resumeData, careerRoadmap, addInterviewSession, userProfile, interviewHistory, assessments, addAssessmentResult } = useAppContext();
     // Calculate global average and level for UI display
     // Updated Logic: Only scores >= 75 count towards the average, divided by total interviews.
     const successfulScores = interviewHistory.filter(s => s.averageScore >= 75).map(s => s.averageScore);
@@ -239,9 +293,13 @@ const CandidateInterviewPage: React.FC = () => {
     const currentLevel = getLevel(totalAvg);
     // FIX: Replaced `useHistory` with `useNavigate` for react-router-dom v6 compatibility.
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const assessmentId = searchParams.get('assessmentId');
 
     // Overall Page State
     const [pageStage, setPageStage] = useState<PageStage>('setup');
+    const [assessment, setAssessment] = useState<any | null>(null);
+    const [loadingAssessment, setLoadingAssessment] = useState(false);
     const [interviewConfig, setInterviewConfig] = useState<InterviewConfig | null>(null);
 
     // Interview Session State
@@ -255,6 +313,7 @@ const CandidateInterviewPage: React.FC = () => {
     const [sessionDuration, setSessionDuration] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [noSpeechRetryCount, setNoSpeechRetryCount] = useState(0);
+    const totalQuestions = assessmentId && assessment ? assessment.questions.length : DEFAULT_TOTAL_QUESTIONS;
 
     // Media & Recording Refs
     const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -294,6 +353,51 @@ const CandidateInterviewPage: React.FC = () => {
         loadModels();
     }, []);
 
+
+    // Fetch recruiter assessment if in assessment mode
+    useEffect(() => {
+        if (!assessmentId) return;
+
+        const loadAssessment = async () => {
+            setLoadingAssessment(true);
+            setError(null);
+            try {
+                // Try fetching public assessment from backend first
+                const data = await assessmentService.getPublicAssessment(assessmentId);
+                if (data) {
+                    setAssessment(data);
+                    // Map the assessment details into interviewConfig
+                    setInterviewConfig({
+                        type: (data.config?.type || 'Behavioral') as any,
+                        difficulty: (data.config?.difficulty || 'Medium') as any,
+                        persona: 'Neutral',
+                        role: data.jobRole || 'Software Developer'
+                    });
+                } else {
+                    throw new Error("Assessment not found");
+                }
+            } catch (err) {
+                console.error("Failed to fetch assessment from backend, trying context fallback:", err);
+                // Try context fallback
+                const found = assessments.find(a => a.id === assessmentId);
+                if (found) {
+                    setAssessment(found);
+                    setInterviewConfig({
+                        type: (found.config?.type || 'Behavioral') as any,
+                        difficulty: (found.config?.difficulty || 'Medium') as any,
+                        persona: 'Neutral',
+                        role: found.jobRole || 'Software Developer'
+                    });
+                } else {
+                    setError("This assessment link is invalid or no longer exists.");
+                }
+            } finally {
+                setLoadingAssessment(false);
+            }
+        };
+
+        loadAssessment();
+    }, [assessmentId, assessments]);
 
     useEffect(() => {
         setNoSpeechRetryCount(0);
@@ -548,34 +652,60 @@ const CandidateInterviewPage: React.FC = () => {
                 console.warn('Failed to add interview session to context:', ctxErr);
             }
 
+            if (assessmentId && assessment) {
+                try {
+                    await addAssessmentResult({
+                        assessmentId,
+                        candidateName: userProfile?.fullName || "Candidate",
+                        candidateEmail: userProfile?.email || "candidate@test.com",
+                        session: sessionData
+                    });
+                    console.log('✓ Assessment result submitted to recruiter');
+                } catch (asmtErr) {
+                    console.error('Failed to submit assessment result to recruiter:', asmtErr);
+                }
+            }
+
             setFinalSession(sessionData);
             setPageStage('summary');
         } catch (err) {
             setError("Could not generate interview summary.");
             setInterviewStage('finished');
         }
-    }, [sessionTranscript, interviewConfig, sessionDuration]);
+    }, [sessionTranscript, interviewConfig, sessionDuration, assessmentId, assessment, userProfile, addAssessmentResult, addInterviewSession]);
 
     const handleNextQuestion = useCallback(() => {
         setTranscript('');
         setNotes('');
-        if (questions.length < TOTAL_QUESTIONS) {
+        if (questions.length < totalQuestions) {
             setInterviewStage('generating_questions');
         } else {
             handleFinishInterview();
         }
-    }, [questions.length, handleFinishInterview]);
+    }, [questions.length, totalQuestions, handleFinishInterview]);
 
     // ---- Effects for State Machine ----
     useEffect(() => {
         const fetchNextQuestion = async () => {
+            if (assessmentId && assessment) {
+                const nextQText = assessment.questions[questions.length];
+                if (nextQText) {
+                    const newQuestion: InterviewQuestion = { id: questions.length + 1, question: nextQText };
+                    setQuestions(prev => [...prev, newQuestion]);
+                    setInterviewStage('asking');
+                } else {
+                    handleFinishInterview();
+                }
+                return;
+            }
+
             if (!resumeData || !interviewConfig) {
                 setError("Missing resume data or configuration to generate question.");
                 return;
             };
             try {
                 const nextQText = await generateNextQuestion(interviewConfig, sessionTranscript, resumeData as ResumeData, questions.length + 1);
-                const newQuestion: InterviewQuestion = { id: questions.length, question: nextQText };
+                const newQuestion: InterviewQuestion = { id: questions.length + 1, question: nextQText };
                 setQuestions(prev => [...prev, newQuestion]);
                 setInterviewStage('asking');
             } catch (err) {
@@ -587,7 +717,7 @@ const CandidateInterviewPage: React.FC = () => {
         if (interviewStage === 'generating_questions' && pageStage === 'interview') {
             fetchNextQuestion();
         }
-    }, [interviewStage, pageStage, questions.length, interviewConfig, resumeData, sessionTranscript]);
+    }, [interviewStage, pageStage, questions.length, interviewConfig, resumeData, sessionTranscript, assessmentId, assessment, handleFinishInterview]);
 
     useEffect(() => {
         if (interviewStage === 'asking' && questions.length > 0) {
@@ -739,8 +869,12 @@ const CandidateInterviewPage: React.FC = () => {
     const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
 
     // ---- Render Logic ----
+    if (loadingAssessment) {
+        return <PageSpinner message="Loading your assessment details..." />;
+    }
+
     if (pageStage === 'setup') {
-        if (!resumeData || !resumeData.skills || resumeData.skills.length === 0) {
+        if (!assessmentId && (!resumeData || !resumeData.skills || resumeData.skills.length === 0)) {
             return (
                 <div className="flex flex-col items-center justify-center p-8 space-y-6 mt-12 mb-12 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 max-w-2xl mx-auto">
                     <AlertTriangle size={64} className="text-yellow-500" />
@@ -752,7 +886,7 @@ const CandidateInterviewPage: React.FC = () => {
                 </div>
             );
         }
-        return <div className="p-4 sm:p-6 md:p-8"><InterviewSetup onStart={handleStartSetup} jobRole={careerRoadmap?.targetRole || 'Software Engineer'} currentAvg={totalAvg} /></div>;
+        return <div className="p-4 sm:p-6 md:p-8"><InterviewSetup onStart={handleStartSetup} jobRole={careerRoadmap?.targetRole || 'Software Engineer'} currentAvg={totalAvg} lockedConfig={assessmentId ? interviewConfig : null} /></div>;
     }
 
     if (pageStage === 'readiness_check' && interviewConfig) {
@@ -786,7 +920,7 @@ const CandidateInterviewPage: React.FC = () => {
     }
 
     if (pageStage !== 'interview' || !interviewConfig) {
-        if (!resumeData) return <PageSpinner message="Please analyze your resume on the dashboard first." />;
+        if (!assessmentId && !resumeData) return <PageSpinner message="Please analyze your resume on the dashboard first." />;
         return <PageSpinner message="Loading interview..." />;
     }
 
@@ -800,7 +934,7 @@ const CandidateInterviewPage: React.FC = () => {
                 <div className="text-slate-900 dark:text-white">
                     <h2 className="font-bold text-md sm:text-lg">{interviewConfig.role} Interview</h2>
                     <div className="flex items-center gap-2">
-                        <p className="text-sm text-slate-500 dark:text-slate-400">{interviewStage === 'generating_questions' ? 'Preparing next question...' : `Question ${questions.length} of ${TOTAL_QUESTIONS}`}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">{interviewStage === 'generating_questions' ? 'Preparing next question...' : `Question ${questions.length} of ${totalQuestions}`}</p>
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${currentLevel.bg} ${currentLevel.color} ${currentLevel.border} uppercase shadow-sm`}>
                             {currentLevel.name}
                         </span>
@@ -901,9 +1035,9 @@ const CandidateInterviewPage: React.FC = () => {
                     </div>
                     <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                         <h3 className="font-semibold text-sm flex items-center mb-2 text-indigo-500 dark:text-indigo-400"><BarChart2 size={16} className="mr-2" /> Interview Progress</h3>
-                        <div className="flex justify-between text-sm font-medium mb-1"><span className="text-slate-700 dark:text-slate-300">Questions Answered</span><span className="text-slate-500 dark:text-slate-400">{questions.length > 0 ? questions.length - 1 : 0} / {TOTAL_QUESTIONS}</span></div>
+                        <div className="flex justify-between text-sm font-medium mb-1"><span className="text-slate-700 dark:text-slate-300">Questions Answered</span><span className="text-slate-500 dark:text-slate-400">{questions.length > 0 ? questions.length - 1 : 0} / {totalQuestions}</span></div>
                         <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
-                            <div className="bg-indigo-600 dark:bg-indigo-500 h-2.5 rounded-full" style={{ width: `${((questions.length > 0 ? questions.length - 1 : 0) / TOTAL_QUESTIONS) * 100}%` }}></div>
+                            <div className="bg-indigo-600 dark:bg-indigo-500 h-2.5 rounded-full" style={{ width: `${((questions.length > 0 ? questions.length - 1 : 0) / totalQuestions) * 100}%` }}></div>
                         </div>
                     </div>
 
