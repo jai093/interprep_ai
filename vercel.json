@@ -45,7 +45,7 @@
     }
   ],
   "functions": {
-    "api/handler.ts": {
+    "api/handler.js": {
       "memory": 1024,
       "maxDuration": 60
     }

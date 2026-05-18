@@ -1,18 +1,17 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import morgan from 'morgan';
-import dotenv from 'dotenv';
-import mongoose from 'mongoose';
-import { connectDB } from '../backend/config/db';
-import { SERVER_CONFIG } from '../backend/config/constants';
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const dotenv = require('dotenv');
+const mongoose = require('mongoose');
+const { connectDB } = require('../backend/config/db');
+const { SERVER_CONFIG } = require('../backend/config/constants');
 
 // Routes
-import authRoutes from '../backend/routes/authRoutes';
-import candidateRoutes from '../backend/routes/candidateRoutes';
-import recruiterRoutes from '../backend/routes/recruiterRoutes';
-import assessmentRoutes from '../backend/routes/assessmentRoutes';
+const authRoutes = require('../backend/routes/authRoutes');
+const candidateRoutes = require('../backend/routes/candidateRoutes');
+const recruiterRoutes = require('../backend/routes/recruiterRoutes');
+const assessmentRoutes = require('../backend/routes/assessmentRoutes');
 
 dotenv.config({ path: '.env.local' });
 
@@ -112,10 +111,10 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/candidate', candidateRoutes);
-app.use('/api/recruiter', recruiterRoutes);
-app.use('/api/assessments', assessmentRoutes);
+app.use('/api/auth', authRoutes.default || authRoutes);
+app.use('/api/candidate', candidateRoutes.default || candidateRoutes);
+app.use('/api/recruiter', recruiterRoutes.default || recruiterRoutes);
+app.use('/api/assessments', assessmentRoutes.default || assessmentRoutes);
 
 // 404 handler
 app.use('/api*', (req, res) => {
@@ -123,7 +122,7 @@ app.use('/api*', (req, res) => {
 });
 
 // Global Error Handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err, req, res, next) => {
   console.error('Unhandled API Error:', err);
   res.status(err.status || 500).json({
     error: err.message || 'Internal Server Error',
@@ -132,4 +131,3 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 module.exports = app;
-export default app;
