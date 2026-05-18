@@ -70,6 +70,21 @@ const jsonToMap = (jsonArr: [any, any][]) => new Map(jsonArr);
 let usersDB = loadFromStorage<User[]>('usersDB', MOCK_USERS);
 let assessmentsDB = loadFromStorage<Assessment[]>('assessmentsDB', MOCK_ASSESSMENTS);
 let assessmentResultsDB = loadFromStorage<AssessmentResult[]>('assessmentResultsDB', MOCK_ASSESSMENT_RESULTS);
+
+// Clear the dummy candidate results from assessmentResultsDB if they are loaded from local storage
+const dummyEmails = [
+  'sanjay.s@test.com',
+  'vikram.p@test.com',
+  'priya.s@test.com',
+  'rahul.v@test.com',
+  'ananya.i@test.com'
+];
+const initialLength = assessmentResultsDB.length;
+assessmentResultsDB = assessmentResultsDB.filter(r => !dummyEmails.includes(r.candidateEmail));
+if (assessmentResultsDB.length !== initialLength) {
+  saveToStorage('assessmentResultsDB', assessmentResultsDB);
+}
+
 let candidateDataDB = jsonToMap(loadFromStorage('candidateDataDB', mapToJson(MOCK_CANDIDATE_DATA)));
 let recruiterDataDB = jsonToMap(loadFromStorage('recruiterDataDB', []));
 
@@ -82,20 +97,13 @@ if (!window.localStorage.getItem('usersDB')) {
   saveToStorage('recruiterDataDB', mapToJson(recruiterDataDB));
 }
 
-// --- HYDRATION CHECK: Ensure new Mock Data (Sanjay S, etc) is merged if missing from old LocalStorage ---
+// --- HYDRATION CHECK: Ensure new Mock Data is merged if missing from old LocalStorage ---
 const mockAssessmentId = 'asmt_1';
-const mockResultId = 'res_1'; // Sanjay S
 
 if (!assessmentsDB.some(a => a.id === mockAssessmentId)) {
   console.log("Hydrating missing Mock Assessment...");
   assessmentsDB = [...assessmentsDB, ...MOCK_ASSESSMENTS.filter(ma => !assessmentsDB.some(a => a.id === ma.id))];
   saveToStorage('assessmentsDB', assessmentsDB);
-}
-
-if (!assessmentResultsDB.some(r => r.id === mockResultId)) {
-  console.log("Hydrating missing Mock Results (Sanjay S)...");
-  assessmentResultsDB = [...assessmentResultsDB, ...MOCK_ASSESSMENT_RESULTS.filter(mr => !assessmentResultsDB.some(r => r.id === mr.id))];
-  saveToStorage('assessmentResultsDB', assessmentResultsDB);
 }
 
 
