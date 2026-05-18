@@ -1,25 +1,26 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const dotenv = require('dotenv');
-const mongoose = require('mongoose');
-const { connectDB } = require('../backend/config/db');
-const { SERVER_CONFIG } = require('../backend/config/constants');
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import dotenv from 'dotenv';
+import mongoose from 'mongoose';
+import { connectDB } from '../backend/config/db';
+import { SERVER_CONFIG } from '../backend/config/constants';
 
 // Routes
-const authRoutes = require('../backend/routes/authRoutes');
-const candidateRoutes = require('../backend/routes/candidateRoutes');
-const recruiterRoutes = require('../backend/routes/recruiterRoutes');
-const assessmentRoutes = require('../backend/routes/assessmentRoutes');
+import authRoutes from '../backend/routes/authRoutes';
+import candidateRoutes from '../backend/routes/candidateRoutes';
+import recruiterRoutes from '../backend/routes/recruiterRoutes';
+import assessmentRoutes from '../backend/routes/assessmentRoutes';
 
 dotenv.config({ path: '.env.local' });
 
 const app = express();
 
 // Path Reconstruction Middleware for Vercel
-app.use((req, res, next) => {
-  const pathParam = req.query.path;
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const pathParam = req.query.path as string;
   if (pathParam) {
     const urlParts = req.url.split('?');
     let queryString = '';
@@ -38,7 +39,7 @@ app.use((req, res, next) => {
 app.use(helmet());
 
 // Configure CORS dynamically to support custom domains
-app.use(cors((req, callback) => {
+app.use(cors((req: express.Request, callback: (err: Error | null, options?: cors.CorsOptions) => void) => {
   const origin = req.header('Origin');
   const host = req.header('Host');
 
@@ -70,12 +71,12 @@ app.use(cors((req, callback) => {
 }));
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (req: express.Request, res: express.Response) => {
   res.status(200).json({ status: 'Server is running' });
 });
 
 // Debug route
-app.get('/api/debug', (req, res) => {
+app.get('/api/debug', (req: express.Request, res: express.Response) => {
   res.json({
     status: 'ok',
     env: {
@@ -90,7 +91,7 @@ app.get('/api/debug', (req, res) => {
 });
 
 // DB Connection Middleware - runs closer to request handling to ensure CORS headers are set
-app.use(async (req, res, next) => {
+app.use(async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   // Fail fast if URI is missing to prevent timeouts
   if (process.env.VERCEL && !process.env.MONGODB_URI) {
     console.error('CRITICAL: MONGODB_URI is missing in Vercel environment');
@@ -111,18 +112,18 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // API Routes
-app.use('/api/auth', authRoutes.default || authRoutes);
-app.use('/api/candidate', candidateRoutes.default || candidateRoutes);
-app.use('/api/recruiter', recruiterRoutes.default || recruiterRoutes);
-app.use('/api/assessments', assessmentRoutes.default || assessmentRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/candidate', candidateRoutes);
+app.use('/api/recruiter', recruiterRoutes);
+app.use('/api/assessments', assessmentRoutes);
 
 // 404 handler
-app.use('/api*', (req, res) => {
+app.use('/api*', (req: express.Request, res: express.Response) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
 // Global Error Handler
-app.use((err, req, res, next) => {
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Unhandled API Error:', err);
   res.status(err.status || 500).json({
     error: err.message || 'Internal Server Error',
@@ -130,4 +131,6 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Export both standard default and CommonJS module.exports to satisfy all module loaders
+export default app;
 module.exports = app;
