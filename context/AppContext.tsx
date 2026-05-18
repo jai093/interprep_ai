@@ -149,12 +149,82 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [theme]);
 
-  // Load saved auth token on mount
+  // Load saved auth token and user profile on mount
   useEffect(() => {
-    const savedToken = localStorage.getItem('accessToken');
-    if (savedToken) {
-      authService.setAccessToken(savedToken);
-    }
+    const initAuth = async () => {
+      const savedToken = localStorage.getItem('accessToken');
+      if (!savedToken) return;
+
+      setLoading(true);
+      try {
+        authService.setAccessToken(savedToken);
+        const { user: backendUser } = await authService.getCurrentUser();
+        const userWithRole: User = { ...backendUser, role: backendUser.role as any };
+        setUser(userWithRole);
+
+        setAssessments(assessmentsDB);
+        setAssessmentResults(assessmentResultsDB);
+
+        if (userWithRole.role === 'candidate') {
+          try {
+            const profile = await candidateService.getProfile();
+            const roadmap = await candidateService.getCareerRoadmap().catch(() => null);
+            const interviews = await candidateService.getInterviewHistory().catch(() => []);
+
+            setUserProfile(profile);
+            if (roadmap) setCareerRoadmap(roadmap);
+            setInterviewHistory(interviews);
+          } catch (err) {
+            console.error('Failed to load candidate data on mount:', err);
+            // Fallback to localStorage
+            const data = candidateDataDB.get(userWithRole.email) || {
+              resumeData: null, careerRoadmap: null, interviewHistory: [],
+              userProfile: {
+                fullName: userWithRole.name, email: userWithRole.email, linkedinUrl: '', skills: [], languages: [],
+                profilePhotoUrl: `https://api.dicebear.com/8.x/initials/svg?seed=${userWithRole.name}`, resumeText: ''
+              }
+            };
+            setResumeData(data.resumeData);
+            setCareerRoadmap(data.careerRoadmap);
+            setInterviewHistory(data.interviewHistory);
+            setUserProfile(data.userProfile);
+          }
+        } else if (userWithRole.role === 'recruiter') {
+          try {
+            const profile = await recruiterService.getProfile();
+            const settings = await recruiterService.getSettings();
+            const assessmentsList = await recruiterService.getAssessments();
+
+            setRecruiterProfile(profile);
+            setRecruiterSettings(settings);
+            
+            const backendIds = new Set(assessmentsList.map((a: Assessment) => a.id));
+            const mockToAdd = assessmentsDB.filter(a => !backendIds.has(a.id));
+            setAssessments([...assessmentsList, ...mockToAdd]);
+          } catch (err) {
+            console.error('Failed to load recruiter data on mount:', err);
+            const data = recruiterDataDB.get(userWithRole.email);
+            if (data) {
+              setRecruiterProfile(data.recruiterProfile);
+              setRecruiterSettings(data.recruiterSettings);
+            } else {
+              setRecruiterProfile({ fullName: userWithRole.name, email: userWithRole.email, company: '' });
+              setRecruiterSettings(defaultRecruiterSettings);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to restore session on mount:', err);
+        // If the token is expired or invalid, clear it
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        authService.setAccessToken(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
   }, []);
 
   const clearState = () => {

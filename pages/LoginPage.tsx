@@ -22,9 +22,14 @@ const LoginPage: React.FC = () => {
     try {
       await login({ email, password });
       const fromLocation = location.state?.from as { pathname: string; search: string; hash: string } | undefined;
-      // For HashRouter, the intended path is in the hash. We must reconstruct
-      // the path from it to ensure correct redirection after login.
-      const redirectTo = fromLocation?.hash ? fromLocation.hash.substring(1) : '/';
+      let redirectTo = '/';
+      if (fromLocation) {
+        if (fromLocation.pathname && fromLocation.pathname !== '/') {
+          redirectTo = fromLocation.pathname + (fromLocation.search || '');
+        } else if (fromLocation.hash) {
+          redirectTo = fromLocation.hash.substring(1);
+        }
+      }
       navigate(redirectTo, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Failed to log in. Please try again.');
