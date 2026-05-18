@@ -4,6 +4,14 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/test-mongoose",
+      "destination": "/api/test-mongoose"
+    },
+    {
+      "source": "/api/test-dotenv",
+      "destination": "/api/test-dotenv"
+    },
+    {
       "source": "/api/test-db",
       "destination": "/api/test-db"
     },
