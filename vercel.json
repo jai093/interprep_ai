@@ -4,6 +4,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/test-express",
+      "destination": "/api/test-express"
+    },
+    {
       "source": "/api/test-mongoose",
       "destination": "/api/test-mongoose"
     },
