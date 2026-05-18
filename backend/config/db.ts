@@ -28,10 +28,20 @@ export const connectDB = async (): Promise<typeof mongoose> => {
       throw new Error('MONGODB_URI points to localhost in production/Vercel. Please set a valid Cloud MongoDB URI.');
     }
 
+    // Enforce a hard 3-second timeout on the Mongoose connection attempt to prevent Vercel 10s timeouts
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Database Connection Timeout (3000ms exceeded). This usually means MongoDB Atlas is blocking Vercel. Please ensure you have whitelisted "0.0.0.0/0" (allow access from anywhere) in your MongoDB Atlas Network Access settings.')), 3000)
+    );
+
     // Cache the connection promise so concurrent requests await the exact same operation
-    cachedConnection = mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000,
-    });
+    cachedConnection = Promise.race([
+      mongoose.connect(uri, {
+        serverSelectionTimeoutMS: 2500,
+        connectTimeoutMS: 2500,
+        socketTimeoutMS: 2500,
+      }),
+      timeoutPromise
+    ]);
 
     await cachedConnection;
     console.log('✓ MongoDB connected successfully');
