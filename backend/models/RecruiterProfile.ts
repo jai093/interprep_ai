@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, models, Document, Types } from 'mongoose';
 
 export interface IRecruiterProfile extends Document {
   user: Types.ObjectId;
@@ -30,4 +30,4 @@ const RecruiterProfileSchema = new Schema<IRecruiterProfile>(
   }
 );
 
-export default model<IRecruiterProfile>('RecruiterProfile', RecruiterProfileSchema);
+export default (models.RecruiterProfile as any) || model<IRecruiterProfile>('RecruiterProfile', RecruiterProfileSchema);

@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, models, Document, Types } from 'mongoose';
 import { InterviewConfigSchema, TranscriptEntrySchema, InterviewSummarySchema } from '../../models/types';
 import type { InterviewConfig, TranscriptEntry, InterviewSummary } from '../../types';
 
@@ -56,4 +56,4 @@ const InterviewSessionSchema = new Schema<IInterviewSession>(
   }
 );
 
-export default model<IInterviewSession>('InterviewSession', InterviewSessionSchema);
+export default (models.InterviewSession as any) || model<IInterviewSession>('InterviewSession', InterviewSessionSchema);

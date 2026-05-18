@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, models, Document, Types } from 'mongoose';
 import { ResumeDataSchema } from '../../models/types';
 import type { ResumeData } from '../../types';
 
@@ -57,4 +57,4 @@ const CandidateProfileSchema = new Schema<ICandidateProfile>(
   }
 );
 
-export default model<ICandidateProfile>('CandidateProfile', CandidateProfileSchema);
+export default (models.CandidateProfile as any) || model<ICandidateProfile>('CandidateProfile', CandidateProfileSchema);

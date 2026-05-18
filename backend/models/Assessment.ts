@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, models, Document, Types } from 'mongoose';
 import { InterviewConfigSchema } from '../../models/types';
 import type { InterviewConfig } from '../../types';
 
@@ -36,4 +36,4 @@ const AssessmentSchema = new Schema<IAssessment>(
   }
 );
 
-export default model<IAssessment>('Assessment', AssessmentSchema);
+export default (models.Assessment as any) || model<IAssessment>('Assessment', AssessmentSchema);

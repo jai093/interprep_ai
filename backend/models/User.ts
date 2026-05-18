@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, models, Document } from 'mongoose';
 import { hashPassword } from '../utils/auth';
 
 export interface IUser extends Document {
@@ -54,4 +54,4 @@ UserSchema.pre<IUser>('save', async function (next) {
   }
 });
 
-export default model<IUser>('User', UserSchema);
+export default (models.User as any) || model<IUser>('User', UserSchema);
