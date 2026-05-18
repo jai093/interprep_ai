@@ -4,6 +4,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/test-imports",
+      "destination": "/api/test-imports"
+    },
+    {
       "source": "/api/test-raw",
       "destination": "/api/test-raw"
     },
