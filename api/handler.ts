@@ -13,6 +13,7 @@ import authRoutes from '../backend/routes/authRoutes';
 import candidateRoutes from '../backend/routes/candidateRoutes';
 import recruiterRoutes from '../backend/routes/recruiterRoutes';
 import assessmentRoutes from '../backend/routes/assessmentRoutes';
+import aiRoutes from '../backend/routes/aiRoutes';
 
 dotenv.config({ path: '.env.local' });
 
@@ -116,6 +117,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/candidate', candidateRoutes);
 app.use('/api/recruiter', recruiterRoutes);
 app.use('/api/assessments', assessmentRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 404 handler
 app.use('/api*', (req: express.Request, res: express.Response) => {
