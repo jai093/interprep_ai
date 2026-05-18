@@ -34,12 +34,19 @@ export const connectDB = async (): Promise<typeof mongoose> => {
     );
 
     // Cache the connection promise so concurrent requests await the exact same operation
+    const connectionPromise = mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 2500,
+      connectTimeoutMS: 2500,
+      socketTimeoutMS: 2500,
+    });
+
+    // Handle background rejections if the connection takes too long and times out
+    connectionPromise.catch((err) => {
+      console.warn('Background MongoDB connection finished with error after timeout:', err.message);
+    });
+
     cachedConnection = Promise.race([
-      mongoose.connect(uri, {
-        serverSelectionTimeoutMS: 2500,
-        connectTimeoutMS: 2500,
-        socketTimeoutMS: 2500,
-      }),
+      connectionPromise,
       timeoutPromise
     ]);
 
