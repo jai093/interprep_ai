@@ -283,7 +283,7 @@ const ReadinessCheck: React.FC<{ config: InterviewConfig, onContinue: () => void
 );
 
 const CandidateInterviewPage: React.FC = () => {
-    const { resumeData, careerRoadmap, addInterviewSession, userProfile, interviewHistory, assessments, addAssessmentResult } = useAppContext();
+    const { user, resumeData, careerRoadmap, addInterviewSession, userProfile, interviewHistory, assessments, addAssessmentResult } = useAppContext();
     // Calculate global average and level for UI display
     // Updated Logic: Only scores >= 75 count towards the average, divided by total interviews.
     const successfulScores = interviewHistory.filter(s => s.averageScore >= 75).map(s => s.averageScore);
@@ -327,6 +327,9 @@ const CandidateInterviewPage: React.FC = () => {
     const MAX_SPEECH_RETRIES = 3;
     const recordedChunksRef = useRef<Blob[]>([]);
     const activeAudioRef = useRef<HTMLAudioElement | null>(null); // Tracks the currently playing TTS audio
+    const generatingQuestionIdRef = useRef<number>(0);
+    const lastSpokenQuestionRef = useRef<number | null>(null);
+    const finishingInterviewRef = useRef<boolean>(false);
 
     // Facial Analysis Refs
     const faceCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -444,6 +447,16 @@ const CandidateInterviewPage: React.FC = () => {
     const speak = useCallback(async (text: string, onEndCallback?: () => void) => {
         speechSynthesis.cancel(); // Stop any leftover browser speaking
 
+        if (activeAudioRef.current) {
+            try {
+                activeAudioRef.current.pause();
+                activeAudioRef.current.src = "";
+            } catch (err) {
+                console.error("Failed to stop previous audio:", err);
+            }
+            activeAudioRef.current = null;
+        }
+
         // Pre-process text for more natural pauses:
         // Add a pause marker after questions, commas, and sentence breaks
         const processedText = text
@@ -478,6 +491,9 @@ const CandidateInterviewPage: React.FC = () => {
     };
 
     const handleStartInterview = async () => {
+        generatingQuestionIdRef.current = 0;
+        lastSpokenQuestionRef.current = null;
+        finishingInterviewRef.current = false;
         setPageStage('interview');
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -569,6 +585,11 @@ const CandidateInterviewPage: React.FC = () => {
     }, [questions]);
 
     const handleFinishInterview = useCallback(async () => {
+        if (finishingInterviewRef.current) {
+            console.log("Interview finish already in progress, ignoring duplicate call.");
+            return;
+        }
+        finishingInterviewRef.current = true;
         setInterviewStage('generating_summary');
 
         // Stop any currently playing TTS audio immediately
@@ -584,13 +605,24 @@ const CandidateInterviewPage: React.FC = () => {
             faceIntervalRef.current = null;
         }
 
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-            mediaRecorderRef.current.stop();
+        // Stop user stream tracks
+        if (userStreamRef.current) {
+            userStreamRef.current.getTracks().forEach(track => track.stop());
         }
-        let videoUrl: string | undefined;
-        if (recordedChunksRef.current.length > 0) {
-            const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
-            videoUrl = URL.createObjectURL(blob);
+
+        // Stop video recording
+        let videoUrl = '';
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            try {
+                mediaRecorderRef.current.stop();
+                // Create object URL from recorded chunks
+                if (recordedChunksRef.current.length > 0) {
+                    const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+                    videoUrl = URL.createObjectURL(blob);
+                }
+            } catch (recErr) {
+                console.warn('Failed to stop media recorder safely:', recErr);
+            }
         }
 
         // Navigate to summary page even if no questions were answered.
@@ -681,8 +713,8 @@ const CandidateInterviewPage: React.FC = () => {
                 try {
                     await addAssessmentResult({
                         assessmentId,
-                        candidateName: userProfile?.fullName || "Candidate",
-                        candidateEmail: userProfile?.email || "candidate@test.com",
+                        candidateName: userProfile?.fullName || user?.name || "Candidate",
+                        candidateEmail: userProfile?.email || user?.email || "candidate@test.com",
                         session: sessionData
                     });
                     console.log('✓ Assessment result submitted to recruiter');
@@ -697,7 +729,7 @@ const CandidateInterviewPage: React.FC = () => {
             setError("Could not generate interview summary.");
             setInterviewStage('finished');
         }
-    }, [sessionTranscript, interviewConfig, sessionDuration, assessmentId, assessment, userProfile, addAssessmentResult, addInterviewSession]);
+    }, [sessionTranscript, interviewConfig, sessionDuration, assessmentId, assessment, userProfile, user, addAssessmentResult, addInterviewSession]);
 
     const handleNextQuestion = useCallback(() => {
         setTranscript('');
@@ -712,10 +744,14 @@ const CandidateInterviewPage: React.FC = () => {
     // ---- Effects for State Machine ----
     useEffect(() => {
         const fetchNextQuestion = async () => {
+            const nextQuestionId = questions.length + 1;
+            if (generatingQuestionIdRef.current >= nextQuestionId) return;
+            generatingQuestionIdRef.current = nextQuestionId;
+
             if (assessmentId && assessment) {
                 const nextQText = assessment.questions[questions.length];
                 if (nextQText) {
-                    const newQuestion: InterviewQuestion = { id: questions.length + 1, question: nextQText };
+                    const newQuestion: InterviewQuestion = { id: nextQuestionId, question: nextQText };
                     setQuestions(prev => [...prev, newQuestion]);
                     setInterviewStage('asking');
                 } else {
@@ -729,8 +765,8 @@ const CandidateInterviewPage: React.FC = () => {
                 return;
             };
             try {
-                const nextQText = await generateNextQuestion(interviewConfig, sessionTranscript, resumeData as ResumeData, questions.length + 1);
-                const newQuestion: InterviewQuestion = { id: questions.length + 1, question: nextQText };
+                const nextQText = await generateNextQuestion(interviewConfig, sessionTranscript, resumeData as ResumeData, nextQuestionId);
+                const newQuestion: InterviewQuestion = { id: nextQuestionId, question: nextQText };
                 setQuestions(prev => [...prev, newQuestion]);
                 setInterviewStage('asking');
             } catch (err) {
@@ -747,7 +783,10 @@ const CandidateInterviewPage: React.FC = () => {
     useEffect(() => {
         if (interviewStage === 'asking' && questions.length > 0) {
             const currentQuestion = questions[questions.length - 1];
-            speak(currentQuestion.question, () => setInterviewStage('listening'));
+            if (lastSpokenQuestionRef.current !== currentQuestion.id) {
+                lastSpokenQuestionRef.current = currentQuestion.id;
+                speak(currentQuestion.question, () => setInterviewStage('listening'));
+            }
         }
     }, [interviewStage, questions, speak]);
 

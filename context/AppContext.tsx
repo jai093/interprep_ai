@@ -171,7 +171,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const roadmap = await candidateService.getCareerRoadmap().catch(() => null);
             const interviews = await candidateService.getInterviewHistory().catch(() => []);
 
-            setUserProfile(profile);
+            setUserProfile({ ...profile, email: userWithRole.email });
             if (roadmap) setCareerRoadmap(roadmap);
             setInterviewHistory(interviews);
           } catch (err) {
@@ -260,7 +260,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (role === 'candidate') {
         try {
           const profile = await candidateService.getProfile();
-          setUserProfile(profile);
+          setUserProfile({ ...profile, email: userWithRole.email });
         } catch (err) {
           console.error('Failed to load candidate profile:', err);
         }
@@ -303,7 +303,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const roadmap = await candidateService.getCareerRoadmap().catch(() => null);
           const interviews = await candidateService.getInterviewHistory().catch(() => []);
 
-          setUserProfile(profile);
+          setUserProfile({ ...profile, email: userWithRole.email });
           if (roadmap) setCareerRoadmap(roadmap);
           setInterviewHistory(interviews);
         } catch (err) {
