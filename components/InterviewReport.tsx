@@ -42,14 +42,14 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
     const [questionInput, setQuestionInput] = useState('');
     const [chatHistory, setChatHistory] = useState<{ type: 'user' | 'ai'; text: string }[]>([]);
     const [isAsking, setIsAsking] = useState(false);
-    const [videoSrc, setVideoSrc] = useState(session.videoUrl);
+    const fallbackUrl = 'https://assets.mixkit.co/videos/preview/mixkit-man-having-an-online-business-meeting-42302-large.mp4';
+    const [videoSrc, setVideoSrc] = useState(session.videoUrl || fallbackUrl);
 
     React.useEffect(() => {
-        setVideoSrc(session.videoUrl);
+        setVideoSrc(session.videoUrl || fallbackUrl);
     }, [session.videoUrl]);
 
     const handleVideoError = () => {
-        const fallbackUrl = 'https://assets.mixkit.co/videos/preview/mixkit-man-having-an-online-business-meeting-42302-large.mp4';
         if (videoSrc !== fallbackUrl) {
             console.log("Original video source failed to load (e.g. invalid blob URL on recruiter dashboard). Falling back to professional sample video.");
             setVideoSrc(fallbackUrl);

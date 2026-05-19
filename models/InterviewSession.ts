@@ -11,6 +11,7 @@ export interface IInterviewSession extends Document {
   config: InterviewConfig;
   transcript: TranscriptEntry[];
   summary: InterviewSummary;
+  videoUrl?: string;
 }
 
 const InterviewSessionSchema = new Schema<IInterviewSession>({
@@ -46,6 +47,10 @@ const InterviewSessionSchema = new Schema<IInterviewSession>({
   summary: {
     type: InterviewSummarySchema,
     required: true,
+  },
+  videoUrl: {
+    type: String,
+    required: false,
   },
 }, {
   timestamps: true,

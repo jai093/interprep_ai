@@ -95,5 +95,6 @@ export const EmbeddedInterviewSessionSchema = new Schema({
     averageScore: { type: Number, required: true },
     config: { type: InterviewConfigSchema, required: true },
     transcript: { type: [TranscriptEntrySchema], required: true },
-    summary: { type: InterviewSummarySchema, required: true }
+    summary: { type: InterviewSummarySchema, required: true },
+    videoUrl: { type: String, required: false }
 }, { _id: false });
