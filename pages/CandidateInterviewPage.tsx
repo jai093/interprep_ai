@@ -330,6 +330,7 @@ const CandidateInterviewPage: React.FC = () => {
     const generatingQuestionIdRef = useRef<number>(0);
     const lastSpokenQuestionRef = useRef<number | null>(null);
     const finishingInterviewRef = useRef<boolean>(false);
+    const errorOccurredRef = useRef<boolean>(false);
 
     // Facial Analysis Refs
     const faceCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -491,6 +492,10 @@ const CandidateInterviewPage: React.FC = () => {
     };
 
     const handleStartInterview = async () => {
+        if (pageStage === 'interview') {
+            console.log("Interview already started, ignoring duplicate start trigger.");
+            return;
+        }
         generatingQuestionIdRef.current = 0;
         lastSpokenQuestionRef.current = null;
         finishingInterviewRef.current = false;
@@ -824,6 +829,7 @@ const CandidateInterviewPage: React.FC = () => {
 
         recognition.onstart = () => {
             submissionTriggeredRef.current = false;
+            errorOccurredRef.current = false;
             setError(null);
             speechRetryRef.current = 0; // Reset retry counter on successful start
             setTranscript('');
@@ -835,6 +841,14 @@ const CandidateInterviewPage: React.FC = () => {
             const answerDuration = timerRef.current;
             stopTimer();
             if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+            
+            // Ignore onend automatic submission if we ended due to an error/retry!
+            if (errorOccurredRef.current) {
+                console.log("Speech recognition ended due to error/retry, ignoring onend submission.");
+                errorOccurredRef.current = false;
+                return;
+            }
+
             // Only submit if it was a clean stop (not an error retry)
             if (interviewStageRef.current === 'listening' && speechRetryRef.current === 0 && !submissionTriggeredRef.current) {
                 submissionTriggeredRef.current = true;
@@ -848,6 +862,8 @@ const CandidateInterviewPage: React.FC = () => {
                 console.log("Speech recognition aborted, likely a normal state transition.");
                 return;
             }
+
+            errorOccurredRef.current = true; // Block onend submission!
 
             if (event.error === 'no-speech') {
                 if (noSpeechRetryCount < 2) { // Allow 2 retries (total 3 attempts)

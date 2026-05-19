@@ -205,7 +205,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setAssessments([...assessmentsList, ...mockToAdd]);
 
             const backendResultIds = new Set(resultsList.map((r: AssessmentResult) => r.id));
-            const mockResultsToAdd = assessmentResultsDB.filter(r => !backendResultIds.has(r.id));
+            const mockResultsToAdd = assessmentResultsDB.filter(r => {
+              if (backendResultIds.has(r.id)) return false;
+              if (resultsList.some((br: AssessmentResult) => br.candidateEmail === r.candidateEmail && br.assessmentId === r.assessmentId)) {
+                return false;
+              }
+              return true;
+            });
             setAssessmentResults([...resultsList, ...mockResultsToAdd]);
           } catch (err) {
             console.error('Failed to load recruiter data on mount:', err);
@@ -337,7 +343,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setAssessments([...assessmentsList, ...mockToAdd]);
 
           const backendResultIds = new Set(resultsList.map((r: AssessmentResult) => r.id));
-          const mockResultsToAdd = assessmentResultsDB.filter(r => !backendResultIds.has(r.id));
+          const mockResultsToAdd = assessmentResultsDB.filter(r => {
+            if (backendResultIds.has(r.id)) return false;
+            if (resultsList.some((br: AssessmentResult) => br.candidateEmail === r.candidateEmail && br.assessmentId === r.assessmentId)) {
+              return false;
+            }
+            return true;
+          });
           setAssessmentResults([...resultsList, ...mockResultsToAdd]);
         } catch (err) {
           console.error('Failed to load recruiter data:', err);
@@ -542,21 +554,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setLoading(true);
     try {
       // 1. Submit to Backend (which handles AI Report & Email)
-      await assessmentService.submitAssessmentResult(resultData.assessmentId, {
+      const response = await assessmentService.submitAssessmentResult(resultData.assessmentId, {
         candidateName: resultData.candidateName,
         candidateEmail: resultData.candidateEmail,
         session: resultData.session
       });
 
+      const backendResultId = (response as any)?.resultId || `res_${Date.now()}`;
+
       // 2. Update Local State (Optimistic or standard)
       const newResult: AssessmentResult = {
         ...resultData,
-        id: `res_${Date.now()}`,
+        id: backendResultId,
         completedAt: new Date().toISOString(),
       };
       assessmentResultsDB.push(newResult);
       saveToStorage('assessmentResultsDB', assessmentResultsDB);
-      setAssessmentResults(prev => [...prev, newResult]);
+      setAssessmentResults(prev => {
+        const filtered = prev.filter(r => r.id !== backendResultId);
+        return [...filtered, newResult];
+      });
 
     } catch (err) {
       console.error('Failed to submit assessment result:', err);
@@ -584,7 +601,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         await recruiterService.updateAssessmentResultStatus(resultId, status, reason);
         const resultsList = await recruiterService.getAssessmentResults().catch(() => []);
         const backendResultIds = new Set(resultsList.map((r: AssessmentResult) => r.id));
-        const mockResultsToAdd = assessmentResultsDB.filter(r => !backendResultIds.has(r.id));
+        const mockResultsToAdd = assessmentResultsDB.filter(r => {
+          if (backendResultIds.has(r.id)) return false;
+          if (resultsList.some((br: AssessmentResult) => br.candidateEmail === r.candidateEmail && br.assessmentId === r.assessmentId)) {
+            return false;
+          }
+          return true;
+        });
         setAssessmentResults([...resultsList, ...mockResultsToAdd]);
       } else {
         const updatedResults = assessmentResultsDB.map(r => r.id === resultId ? { ...r, status } : r);
