@@ -32,6 +32,22 @@ const RecruiterDashboardPage: React.FC = () => {
 
     const generateAssessmentLink = (assessmentId: string): string => {
         const baseUrl = import.meta.env.VITE_FRONTEND_URL || window.location.origin.replace(/^blob:/, '');
+        const assessment = assessments.find(a => a.id === assessmentId);
+        if (assessment) {
+            try {
+                const payload = {
+                    id: assessment.id,
+                    jobRole: assessment.jobRole,
+                    questions: assessment.questions,
+                    config: assessment.config
+                };
+                const qJson = JSON.stringify(payload);
+                const qBase64 = btoa(unescape(encodeURIComponent(qJson)));
+                return `${baseUrl}/#/assessment/${assessmentId}?q=${encodeURIComponent(qBase64)}`;
+            } catch (e) {
+                console.error("Failed to encode assessment questions in link:", e);
+            }
+        }
         return `${baseUrl}/#/assessment/${assessmentId}`;
     };
 

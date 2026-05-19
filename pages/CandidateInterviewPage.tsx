@@ -361,6 +361,31 @@ const CandidateInterviewPage: React.FC = () => {
         const loadAssessment = async () => {
             setLoadingAssessment(true);
             setError(null);
+
+            // 1. Try decoding embedded assessment details from 'q' query param first
+            const qEncoded = searchParams.get('q');
+            if (qEncoded) {
+                try {
+                    const decodedJson = decodeURIComponent(escape(atob(qEncoded)));
+                    const payload = JSON.parse(decodedJson);
+                    if (payload && payload.questions && payload.questions.length > 0) {
+                        console.log("✓ Successfully loaded embedded assessment details from URL link!");
+                        setAssessment(payload);
+                        setInterviewConfig({
+                            type: (payload.config?.type || 'Behavioral') as any,
+                            difficulty: (payload.config?.difficulty || 'Medium') as any,
+                            persona: 'Neutral',
+                            role: payload.jobRole || 'Software Developer'
+                        });
+                        setLoadingAssessment(false);
+                        return; // Successfully loaded, skip backend/context fetch
+                    }
+                } catch (e) {
+                    console.error("Failed to decode embedded assessment from URL:", e);
+                }
+            }
+
+            // 2. Fallback to API / context
             try {
                 // Try fetching public assessment from backend first
                 const data = await assessmentService.getPublicAssessment(assessmentId);
@@ -397,7 +422,7 @@ const CandidateInterviewPage: React.FC = () => {
         };
 
         loadAssessment();
-    }, [assessmentId, assessments]);
+    }, [assessmentId, searchParams, assessments]);
 
     useEffect(() => {
         setNoSpeechRetryCount(0);

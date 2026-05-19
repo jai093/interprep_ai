@@ -491,7 +491,11 @@ const AssessmentPage: React.FC = () => {
             }
 
             // User is a logged-in candidate, immediately redirect to high-fidelity interview page
-            navigate(`/candidate/interview?assessmentId=${assessmentId}`, { replace: true });
+            const searchParams = new URLSearchParams(location.search);
+            if (assessmentId) {
+                searchParams.set('assessmentId', assessmentId);
+            }
+            navigate(`/candidate/interview?${searchParams.toString()}`, { replace: true });
         }
     }, [isLoading, user, navigate, location, assessmentId]);
 
