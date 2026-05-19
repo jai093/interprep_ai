@@ -192,7 +192,7 @@ const RecruiterDashboardPage: React.FC = () => {
                                                     {result.status || 'Pending'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 flex gap-2">
+                                            <td className="px-6 py-4 flex flex-wrap gap-2 items-center">
                                                 <button onClick={() => navigate(`/recruiter/report/${result.id}`)} className="text-indigo-600 dark:text-indigo-400 hover:underline text-sm font-medium border-r border-slate-300 dark:border-slate-700 pr-2">View</button>
                                                 <button onClick={() => handleShortlist(result.id, result.candidateName)} className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 text-sm font-medium border-r border-slate-300 dark:border-slate-700 pr-2">Shortlist</button>
                                                 <button onClick={() => handleHold(result.id)} className="text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-300 text-sm font-medium border-r border-slate-300 dark:border-slate-700 pr-2">Hold</button>

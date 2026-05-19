@@ -215,15 +215,15 @@ const ProgressDashboard: React.FC = () => {
                 <div className="lg:col-span-2 space-y-6">
                     {/* Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 premium-card">
                             <h3 className="font-semibold text-slate-500 dark:text-slate-400 text-sm">Total Interviews</h3>
                             <p className="text-3xl font-bold text-slate-900 dark:text-white mt-1">{totalInterviews}</p>
                         </div>
-                        <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 premium-card">
                             <h3 className="font-semibold text-slate-500 dark:text-slate-400 text-sm">Global Average</h3>
                             <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">{averageScore}%</p>
                         </div>
-                        <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 premium-card">
                             <h3 className="font-semibold text-slate-500 dark:text-slate-400 text-sm">Current Level</h3>
                             <p className={`text-3xl font-bold ${currentLevel.color} mt-1`}>{currentLevel.name}</p>
                         </div>
