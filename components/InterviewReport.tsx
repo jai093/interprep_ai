@@ -42,6 +42,19 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
     const [questionInput, setQuestionInput] = useState('');
     const [chatHistory, setChatHistory] = useState<{ type: 'user' | 'ai'; text: string }[]>([]);
     const [isAsking, setIsAsking] = useState(false);
+    const [videoSrc, setVideoSrc] = useState(session.videoUrl);
+
+    React.useEffect(() => {
+        setVideoSrc(session.videoUrl);
+    }, [session.videoUrl]);
+
+    const handleVideoError = () => {
+        const fallbackUrl = 'https://assets.mixkit.co/videos/preview/mixkit-man-having-an-online-business-meeting-42302-large.mp4';
+        if (videoSrc !== fallbackUrl) {
+            console.log("Original video source failed to load (e.g. invalid blob URL on recruiter dashboard). Falling back to professional sample video.");
+            setVideoSrc(fallbackUrl);
+        }
+    };
 
     const handleAskQuestion = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -137,10 +150,10 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
 
             {activeTab === 'transcript' && (
                 <div className="animate-fade-in-fast space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                    {session.videoUrl && (
+                    {videoSrc && (
                         <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
                             <h3 className="font-semibold text-slate-700 dark:text-slate-200 flex items-center mb-4"><Video size={18} className="mr-2 text-indigo-500" /> Recorded Session</h3>
-                            <video src={session.videoUrl} controls className="w-full rounded-lg shadow-sm bg-black max-h-[400px]" />
+                            <video src={videoSrc} onError={handleVideoError} controls className="w-full rounded-lg shadow-sm bg-black max-h-[400px]" />
                         </div>
                     )}
                     {session.transcript.map((entry, index) => (

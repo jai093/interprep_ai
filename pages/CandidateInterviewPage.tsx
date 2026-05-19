@@ -331,6 +331,7 @@ const CandidateInterviewPage: React.FC = () => {
     const lastSpokenQuestionRef = useRef<number | null>(null);
     const finishingInterviewRef = useRef<boolean>(false);
     const errorOccurredRef = useRef<boolean>(false);
+    const lastSpeakIdRef = useRef<number>(0);
 
     // Facial Analysis Refs
     const faceCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -458,6 +459,8 @@ const CandidateInterviewPage: React.FC = () => {
             activeAudioRef.current = null;
         }
 
+        const currentSpeakId = ++lastSpeakIdRef.current;
+
         // Pre-process text for more natural pauses:
         // Add a pause marker after questions, commas, and sentence breaks
         const processedText = text
@@ -467,13 +470,21 @@ const CandidateInterviewPage: React.FC = () => {
 
         try {
             const audioUrl = await generateTTSAudio(processedText, 'en-US');
+            if (lastSpeakIdRef.current !== currentSpeakId) {
+                console.log("A newer speak request came in, ignoring old audio URL resolution.");
+                URL.revokeObjectURL(audioUrl);
+                return;
+            }
+
             const audio = new Audio(audioUrl);
             activeAudioRef.current = audio;
             audio.playbackRate = 0.88; // Slower = more natural, human-like pacing
             audio.onended = () => {
                 if (onEndCallback) onEndCallback();
                 URL.revokeObjectURL(audioUrl);
-                activeAudioRef.current = null;
+                if (activeAudioRef.current === audio) {
+                    activeAudioRef.current = null;
+                }
             };
             audio.play().catch(err => {
                 console.error("Audio playback failed:", err);
